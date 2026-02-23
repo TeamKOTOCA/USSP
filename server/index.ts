@@ -2,6 +2,9 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import fs from "fs";
+import path from "path";
+import { backupProcessor } from "./backup-queue";
 
 const app = express();
 const httpServer = createServer(app);
@@ -60,6 +63,20 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialize local directories
+  const dataDir = path.join(process.cwd(), "data");
+  const storageDir = path.join(dataDir, "storage");
+  
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+    console.log(`[Init] Created data directory: ${dataDir}`);
+  }
+  
+  if (!fs.existsSync(storageDir)) {
+    fs.mkdirSync(storageDir, { recursive: true });
+    console.log(`[Init] Created storage directory: ${storageDir}`);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
@@ -85,6 +102,9 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
+  // Start backup queue processor
+  backupProcessor.start().catch(console.error);
+
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
@@ -100,4 +120,11 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
     },
   );
+
+  // Graceful shutdown
+  process.on("SIGTERM", async () => {
+    console.log("[Init] SIGTERM received, shutting down gracefully");
+    await backupProcessor.stop();
+    process.exit(0);
+  });
 })();
