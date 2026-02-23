@@ -2,6 +2,8 @@ import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 import { Readable } from "stream";
+import { S3Adapter, type S3AdapterConfig } from "./adapters/s3-adapter";
+import { GoogleDriveAdapter, type GoogleDriveConfig } from "./adapters/gdrive-adapter";
 
 export interface StorageAdapterConfig {
   type: "local" | "s3" | "gdrive";
@@ -19,19 +21,28 @@ export class FileHandler {
   async uploadFile(
     adapter: StorageAdapterConfig,
     filePath: string,
-    data: Buffer | Readable
+    data: Buffer | Readable,
+    mimeType?: string
   ): Promise<FileInfo> {
     if (adapter.type === "local") {
-      return this.uploadLocal(adapter.config, filePath, data);
+      return this.uploadLocal(adapter.config, filePath, data, mimeType);
     }
-    // S3, GDrive等は後で実装
+    if (adapter.type === "s3") {
+      const s3 = new S3Adapter(adapter.config as S3AdapterConfig);
+      return s3.uploadFile(filePath, data, mimeType);
+    }
+    if (adapter.type === "gdrive") {
+      const gdrive = new GoogleDriveAdapter(adapter.config as GoogleDriveConfig);
+      return gdrive.uploadFile(filePath, data, mimeType);
+    }
     throw new Error(`Adapter type '${adapter.type}' not yet implemented`);
   }
 
   private async uploadLocal(
     config: Record<string, any>,
     filePath: string,
-    data: Buffer | Readable
+    data: Buffer | Readable,
+    mimeType?: string
   ): Promise<FileInfo> {
     const baseDir = config.path || path.join(process.cwd(), "data", "storage");
     const fullPath = path.join(baseDir, filePath);
@@ -61,15 +72,17 @@ export class FileHandler {
       .digest("hex");
 
     // ファイルタイプ推定
-    let mimeType = "application/octet-stream";
-    if (filePath.endsWith(".json")) mimeType = "application/json";
-    if (filePath.endsWith(".txt")) mimeType = "text/plain";
-    if (filePath.endsWith(".csv")) mimeType = "text/csv";
-    if (filePath.endsWith(".pdf")) mimeType = "application/pdf";
-    if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg"))
-      mimeType = "image/jpeg";
-    if (filePath.endsWith(".png")) mimeType = "image/png";
-    if (filePath.endsWith(".gif")) mimeType = "image/gif";
+    if (!mimeType) {
+      mimeType = "application/octet-stream";
+      if (filePath.endsWith(".json")) mimeType = "application/json";
+      if (filePath.endsWith(".txt")) mimeType = "text/plain";
+      if (filePath.endsWith(".csv")) mimeType = "text/csv";
+      if (filePath.endsWith(".pdf")) mimeType = "application/pdf";
+      if (filePath.endsWith(".jpg") || filePath.endsWith(".jpeg"))
+        mimeType = "image/jpeg";
+      if (filePath.endsWith(".png")) mimeType = "image/png";
+      if (filePath.endsWith(".gif")) mimeType = "image/gif";
+    }
 
     return {
       path: filePath,
@@ -85,6 +98,14 @@ export class FileHandler {
   ): Promise<Buffer | null> {
     if (adapter.type === "local") {
       return this.downloadLocal(adapter.config, filePath);
+    }
+    if (adapter.type === "s3") {
+      const s3 = new S3Adapter(adapter.config as S3AdapterConfig);
+      return s3.downloadFile(filePath);
+    }
+    if (adapter.type === "gdrive") {
+      const gdrive = new GoogleDriveAdapter(adapter.config as GoogleDriveConfig);
+      return gdrive.downloadFile(filePath);
     }
     throw new Error(`Adapter type '${adapter.type}' not yet implemented`);
   }
@@ -110,6 +131,14 @@ export class FileHandler {
     if (adapter.type === "local") {
       return this.deleteLocal(adapter.config, filePath);
     }
+    if (adapter.type === "s3") {
+      const s3 = new S3Adapter(adapter.config as S3AdapterConfig);
+      return s3.deleteFile(filePath);
+    }
+    if (adapter.type === "gdrive") {
+      const gdrive = new GoogleDriveAdapter(adapter.config as GoogleDriveConfig);
+      return gdrive.deleteFile(filePath);
+    }
     throw new Error(`Adapter type '${adapter.type}' not yet implemented`);
   }
 
@@ -134,6 +163,14 @@ export class FileHandler {
   ): Promise<FileInfo | null> {
     if (adapter.type === "local") {
       return this.getLocalStats(adapter.config, filePath);
+    }
+    if (adapter.type === "s3") {
+      const s3 = new S3Adapter(adapter.config as S3AdapterConfig);
+      return s3.getFileStats(filePath);
+    }
+    if (adapter.type === "gdrive") {
+      const gdrive = new GoogleDriveAdapter(adapter.config as GoogleDriveConfig);
+      return gdrive.getFileStats(filePath);
     }
     throw new Error(`Adapter type '${adapter.type}' not yet implemented`);
   }

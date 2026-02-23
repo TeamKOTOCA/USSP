@@ -39,14 +39,19 @@ import { format } from "date-fns";
 const adapterFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   type: z.enum(["local", "s3", "gdrive"]),
-  configStr: z.string().refine((val) => {
-    try {
-      JSON.parse(val);
-      return true;
-    } catch {
-      return false;
-    }
-  }, "Must be valid JSON"),
+  // S3設定
+  s3Region: z.string().optional(),
+  s3Bucket: z.string().optional(),
+  s3AccessKeyId: z.string().optional(),
+  s3SecretAccessKey: z.string().optional(),
+  s3Endpoint: z.string().optional(),
+  // Google Drive設定
+  gdriveClientId: z.string().optional(),
+  gdriveClientSecret: z.string().optional(),
+  gdriveRefreshToken: z.string().optional(),
+  gdriveFolderId: z.string().optional(),
+  // Local設定
+  localPath: z.string().optional(),
   isDefault: z.boolean().default(false),
 });
 
@@ -150,17 +155,42 @@ function CreateAdapterDialog({ open, onOpenChange }: { open: boolean, onOpenChan
     defaultValues: {
       name: "",
       type: "local",
-      configStr: "{\n  \"path\": \"/var/ussp/data\"\n}",
+      localPath: "/var/ussp/data",
       isDefault: false,
     },
   });
 
+  const adapterType = form.watch("type");
+
   function onSubmit(data: AdapterFormValues) {
+    let config: Record<string, any> = {};
+
+    if (data.type === "local") {
+      config = {
+        path: data.localPath || "/var/ussp/data",
+      };
+    } else if (data.type === "s3") {
+      config = {
+        region: data.s3Region,
+        bucket: data.s3Bucket,
+        accessKeyId: data.s3AccessKeyId,
+        secretAccessKey: data.s3SecretAccessKey,
+        endpoint: data.s3Endpoint,
+      };
+    } else if (data.type === "gdrive") {
+      config = {
+        clientId: data.gdriveClientId,
+        clientSecret: data.gdriveClientSecret,
+        refreshToken: data.gdriveRefreshToken,
+        folderId: data.gdriveFolderId,
+      };
+    }
+
     createMutation.mutate(
       {
         name: data.name,
         type: data.type,
-        config: JSON.parse(data.configStr),
+        config,
         isDefault: data.isDefault,
       },
       {
@@ -226,24 +256,151 @@ function CreateAdapterDialog({ open, onOpenChange }: { open: boolean, onOpenChan
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="configStr"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Configuration (JSON)</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder='{"bucket": "my-bucket", "region": "us-east-1"}'
-                      className="font-mono text-sm h-32 resize-none"
-                      {...field} 
-                    />
-                  </FormControl>
-                  <FormDescription>Valid JSON object specific to the adapter type.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {adapterType === "local" && (
+              <FormField
+                control={form.control}
+                name="localPath"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Storage Path</FormLabel>
+                    <FormControl>
+                      <Input placeholder="/var/ussp/data" {...field} />
+                    </FormControl>
+                    <FormDescription>Local filesystem path for storage.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {adapterType === "s3" && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="s3Region"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>AWS Region</FormLabel>
+                      <FormControl>
+                        <Input placeholder="us-east-1" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="s3Bucket"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>S3 Bucket Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="my-bucket" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="s3AccessKeyId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Access Key ID</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="AKIA..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="s3SecretAccessKey"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Secret Access Key</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="Secret key" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="s3Endpoint"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Endpoint (Optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="https://s3.minio.example.com" {...field} />
+                      </FormControl>
+                      <FormDescription>For MinIO or R2, leave empty for AWS S3.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
+
+            {adapterType === "gdrive" && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="gdriveClientId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Client ID</FormLabel>
+                      <FormControl>
+                        <Input placeholder="YOUR_CLIENT_ID" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="gdriveClientSecret"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Client Secret</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="YOUR_SECRET" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="gdriveRefreshToken"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Refresh Token</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="YOUR_REFRESH_TOKEN" className="font-mono text-xs" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="gdriveFolderId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Folder ID</FormLabel>
+                      <FormControl>
+                        <Input placeholder="FOLDER_ID" {...field} />
+                      </FormControl>
+                      <FormDescription>Google Drive folder ID for storage.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
 
             <FormField
               control={form.control}
