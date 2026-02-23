@@ -6,6 +6,11 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  email: text("email"),
+  role: text("role", { enum: ["admin", "user"] }).default("user"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  lastLogin: timestamp("last_login"),
 });
 
 export const storageAdapters = pgTable("storage_adapters", {
@@ -44,6 +49,30 @@ export const files = pgTable("files", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const oauthTokens = pgTable("oauth_tokens", {
+  id: serial("id").primaryKey(),
+  clientId: text("client_id").notNull(),
+  code: text("code").unique(),
+  accessToken: text("access_token").unique(),
+  refreshToken: text("refresh_token").unique(),
+  codeChallenge: text("code_challenge"),
+  codeChallengeMethod: text("code_challenge_method"),
+  redirectUri: text("redirect_uri"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const backupQueue = pgTable("backup_queue", {
+  id: serial("id").primaryKey(),
+  fileId: integer("file_id").references(() => files.id).notNull(),
+  sourceAdapterId: integer("source_adapter_id").references(() => storageAdapters.id).notNull(),
+  targetAdapterId: integer("target_adapter_id").references(() => storageAdapters.id).notNull(),
+  status: text("status", { enum: ["pending", "in_progress", "completed", "failed"] }).default("pending"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
 export const insertStorageAdapterSchema = createInsertSchema(storageAdapters).omit({ id: true, createdAt: true });
 // For forms, config is often typed as a string then parsed to JSON, but we'll accept any object here
 export const insertNamespaceSchema = createInsertSchema(namespaces).omit({ id: true, createdAt: true });
@@ -54,6 +83,8 @@ export type StorageAdapter = typeof storageAdapters.$inferSelect;
 export type Namespace = typeof namespaces.$inferSelect;
 export type OauthClient = typeof oauthClients.$inferSelect;
 export type FileMetadata = typeof files.$inferSelect;
+export type OAuthToken = typeof oauthTokens.$inferSelect;
+export type BackupQueueItem = typeof backupQueue.$inferSelect;
 
 export type InsertStorageAdapter = z.infer<typeof insertStorageAdapterSchema>;
 export type InsertNamespace = z.infer<typeof insertNamespaceSchema>;
