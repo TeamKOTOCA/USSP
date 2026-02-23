@@ -13,19 +13,28 @@ import {
 import { fileHandler } from "./file-handler";
 import { backupProcessor } from "./backup-queue";
 import { userManagement } from "./user-management";
+import {
+  requireAdminSession,
+  requireOAuthToken,
+  adminOnly,
+  requireFileAccess,
+  createAdminSession,
+  generateCSRFToken,
+  type AuthenticatedRequest,
+} from "./middleware/security";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
 
-  // Adapters
-  app.get(api.adapters.list.path, async (req, res) => {
+  // Adapters (Web UI Admin Only)
+  app.get(api.adapters.list.path, requireAdminSession as any, adminOnly as any, async (req, res) => {
     const adapters = await storage.getAdapters();
     res.json(adapters);
   });
 
-  app.post(api.adapters.create.path, async (req, res) => {
+  app.post(api.adapters.create.path, requireAdminSession as any, adminOnly as any, async (req, res) => {
     try {
       const input = api.adapters.create.input.parse(req.body);
       const adapter = await storage.createAdapter(input);
@@ -38,18 +47,18 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.adapters.delete.path, async (req, res) => {
+  app.delete(api.adapters.delete.path, requireAdminSession as any, adminOnly as any, async (req, res) => {
     await storage.deleteAdapter(Number(req.params.id));
     res.status(204).end();
   });
 
-  // Namespaces
-  app.get(api.namespaces.list.path, async (req, res) => {
+  // Namespaces (Web UI Admin Only)
+  app.get(api.namespaces.list.path, requireAdminSession as any, adminOnly as any, async (req, res) => {
     const nss = await storage.getNamespaces();
     res.json(nss);
   });
 
-  app.post(api.namespaces.create.path, async (req, res) => {
+  app.post(api.namespaces.create.path, requireAdminSession as any, adminOnly as any, async (req, res) => {
     try {
       const bodySchema = api.namespaces.create.input.extend({
         storageAdapterId: z.coerce.number().optional(),
@@ -66,18 +75,18 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.namespaces.delete.path, async (req, res) => {
+  app.delete(api.namespaces.delete.path, requireAdminSession as any, adminOnly as any, async (req, res) => {
     await storage.deleteNamespace(Number(req.params.id));
     res.status(204).end();
   });
 
-  // Clients
-  app.get(api.clients.list.path, async (req, res) => {
+  // Clients (Web UI Admin Only)
+  app.get(api.clients.list.path, requireAdminSession as any, adminOnly as any, async (req, res) => {
     const clients = await storage.getClients();
     res.json(clients);
   });
 
-  app.post(api.clients.create.path, async (req, res) => {
+  app.post(api.clients.create.path, requireAdminSession as any, adminOnly as any, async (req, res) => {
     try {
       const input = api.clients.create.input.parse(req.body);
       const client = await storage.createClient(input);
@@ -90,7 +99,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.clients.delete.path, async (req, res) => {
+  app.delete(api.clients.delete.path, requireAdminSession as any, adminOnly as any, async (req, res) => {
     await storage.deleteClient(Number(req.params.id));
     res.status(204).end();
   });
@@ -176,16 +185,10 @@ export async function registerRoutes(
     }
   });
 
-  // File Operations
-  app.post("/api/files/upload", async (req, res) => {
+  // File Operations (OAuth Token Required)
+  app.post("/api/files/upload", requireOAuthToken as any, async (req: AuthenticatedRequest, res) => {
     try {
-      const token = req.headers.authorization?.split(" ")[1];
-      if (!token) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
-      const auth = await validateAccessToken(token);
-      if (!auth) {
+      if (!req.tokenPayload?.clientId) {
         return res.status(401).json({ error: "Invalid token" });
       }
 
@@ -221,15 +224,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/files/download", async (req, res) => {
+  app.get("/api/files/download", requireOAuthToken as any, async (req: AuthenticatedRequest, res) => {
     try {
-      const token = req.headers.authorization?.split(" ")[1];
-      if (!token) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
-      const auth = await validateAccessToken(token);
-      if (!auth) {
+      if (!req.tokenPayload?.clientId) {
         return res.status(401).json({ error: "Invalid token" });
       }
 
@@ -268,8 +265,8 @@ export async function registerRoutes(
     }
   });
 
-  // Admin User Management Endpoints
-  app.post("/api/admin/users", async (req, res) => {
+  // Admin User Management Endpoints (Web UI Admin Only)
+  app.post("/api/admin/users", requireAdminSession as any, adminOnly as any, async (req, res) => {
     try {
       const { username, email, password, role } = req.body;
 
@@ -291,7 +288,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/admin/users", async (req, res) => {
+  app.get("/api/admin/users", requireAdminSession as any, adminOnly as any, async (req, res) => {
     try {
       const users = await userManagement.getAllUsers();
       res.json(users);
@@ -301,7 +298,7 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/admin/users/:id", async (req, res) => {
+  app.get("/api/admin/users/:id", requireAdminSession as any, adminOnly as any, async (req, res) => {
     try {
       const user = await userManagement.getUser(Number(req.params.id));
       if (!user) {
@@ -314,7 +311,7 @@ export async function registerRoutes(
     }
   });
 
-  app.patch("/api/admin/users/:id", async (req, res) => {
+  app.patch("/api/admin/users/:id", requireAdminSession as any, adminOnly as any, async (req, res) => {
     try {
       const { email, role, isActive, password } = req.body;
 
@@ -336,7 +333,7 @@ export async function registerRoutes(
     }
   });
 
-  app.delete("/api/admin/users/:id", async (req, res) => {
+  app.delete("/api/admin/users/:id", requireAdminSession as any, adminOnly as any, async (req, res) => {
     try {
       await userManagement.deleteUser(Number(req.params.id));
       res.status(204).end();
@@ -366,13 +363,22 @@ export async function registerRoutes(
 
       await userManagement.updateLastLogin(user.id);
 
-      // Generate admin session token
-      const adminToken = crypto.randomBytes(32).toString("hex");
-      // Store in-memory or in cache (should use Redis in production)
+      // Create secure session cookie
+      const sessionId = createAdminSession(user.id);
+      res.cookie("admin_session", sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      });
 
       res.json({
-        adminToken,
-        user: user,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+        },
       });
     } catch (err) {
       console.error("Admin login error:", err);
@@ -380,16 +386,10 @@ export async function registerRoutes(
     }
   });
 
-  // Backup Queue Endpoints
-  app.post("/api/backup/create", async (req, res) => {
+  // Backup Queue Endpoints (OAuth Token Required)
+  app.post("/api/backup/create", requireOAuthToken as any, async (req: AuthenticatedRequest, res) => {
     try {
-      const token = req.headers.authorization?.split(" ")[1];
-      if (!token) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
-      const auth = await validateAccessToken(token);
-      if (!auth) {
+      if (!req.tokenPayload?.clientId) {
         return res.status(401).json({ error: "Invalid token" });
       }
 
@@ -411,15 +411,9 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/backup/status", async (req, res) => {
+  app.get("/api/backup/status", requireOAuthToken as any, async (req: AuthenticatedRequest, res) => {
     try {
-      const token = req.headers.authorization?.split(" ")[1];
-      if (!token) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
-      const auth = await validateAccessToken(token);
-      if (!auth) {
+      if (!req.tokenPayload?.clientId) {
         return res.status(401).json({ error: "Invalid token" });
       }
 
