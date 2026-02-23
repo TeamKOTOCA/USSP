@@ -2,6 +2,7 @@ import { OAuthClient } from "./oauth";
 import { FilesClient } from "./files";
 import { BackupClient } from "./backup";
 import { AdminClient } from "./admin";
+import { httpRequest } from "./http-client";
 
 export interface USSPConfig {
   serverUrl: string;
@@ -11,6 +12,7 @@ export interface USSPConfig {
 
 /**
  * USSP SDK - JavaScript/TypeScript SDKでUSSPストレージプラットフォームを使用
+ * Node.js/ブラウザ両対応
  * 
  * 使用例:
  * ```typescript
@@ -25,10 +27,14 @@ export interface USSPConfig {
  * });
  * 
  * // ファイルアップロード
- * await ussp.files.upload(namespaceId, 'path/to/file.txt', fileData);
+ * await ussp.files.upload({
+ *   namespaceId: 1,
+ *   path: 'path/to/file.txt',
+ *   data: 'file content',
+ * });
  * 
  * // ファイルダウンロード
- * const data = await ussp.files.download(namespaceId, 'path/to/file.txt');
+ * const data = await ussp.files.download(1, 'path/to/file.txt');
  * ```
  */
 export class USSP {
@@ -78,12 +84,12 @@ export class USSP {
   }
 
   /**
-   * APIリクエストを実行
+   * APIリクエストを実行（Node.js/ブラウザ両対応）
    */
   async request<T>(
-    method: string,
     endpoint: string,
     options?: {
+      method?: string;
       data?: any;
       params?: Record<string, any>;
       headers?: Record<string, string>;
@@ -99,20 +105,20 @@ export class USSP {
       headers.Authorization = `Bearer ${this.accessToken}`;
     }
 
-    const response = await fetch(url, {
-      method,
+    const response = await httpRequest<T>(url, {
+      method: options?.method || "GET",
+      data: options?.data,
+      params: options?.params,
       headers,
-      body: options?.data ? JSON.stringify(options.data) : undefined,
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
       throw new Error(
-        `API request failed: ${response.status} ${error.error || response.statusText}`
+        `API request failed: ${response.status} ${response.error?.error || "Unknown error"}`
       );
     }
 
-    return response.json() as Promise<T>;
+    return response.data as T;
   }
 }
 

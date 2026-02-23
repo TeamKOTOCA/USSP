@@ -27,69 +27,88 @@ export class FilesClient {
   }
 
   /**
-   * ファイルをアップロード
+   * ファイルをアップロード（Node.js/ブラウザ両対応）
    */
   async upload(options: FileUploadOptions): Promise<FileInfo> {
     const { namespaceId, path, data, mimeType } = options;
+    const isNode = typeof window === "undefined";
 
-    // DataをFormDataに変換
-    const formData = new FormData();
-    formData.append("namespaceId", namespaceId.toString());
-    formData.append("path", path);
+    let body: any;
+    let headers: Record<string, string> = {
+      Authorization: `Bearer ${this.ussp.getAccessToken()}`,
+    };
 
-    if (data instanceof Blob) {
-      formData.append("file", data);
-    } else if (typeof data === "string") {
-      formData.append("file", new Blob([data], { type: mimeType || "text/plain" }));
+    if (isNode) {
+      // Node.js環境: multipart/form-dataを手動で構築
+      const boundary = "----FormBoundary" + Math.random().toString(36).substr(2);
+      headers["Content-Type"] = `multipart/form-data; boundary=${boundary}`;
+
+      let bodyString = "";
+      bodyString += `--${boundary}\r\n`;
+      bodyString += `Content-Disposition: form-data; name="namespaceId"\r\n\r\n`;
+      bodyString += `${namespaceId}\r\n`;
+      bodyString += `--${boundary}\r\n`;
+      bodyString += `Content-Disposition: form-data; name="path"\r\n\r\n`;
+      bodyString += `${path}\r\n`;
+      bodyString += `--${boundary}\r\n`;
+      bodyString += `Content-Disposition: form-data; name="file"; filename="${path}"\r\n`;
+      bodyString += `Content-Type: ${mimeType || "application/octet-stream"}\r\n\r\n`;
+
+      const dataBuffer = Buffer.isBuffer(data)
+        ? data
+        : Buffer.from(typeof data === "string" ? data : Buffer.from(data));
+
+      const endBoundary = `\r\n--${boundary}--\r\n`;
+
+      body = Buffer.concat([
+        Buffer.from(bodyString),
+        dataBuffer,
+        Buffer.from(endBoundary),
+      ]);
     } else {
-      formData.append("file", new Blob([data], { type: mimeType || "application/octet-stream" }));
+      // ブラウザ環境: FormDataを使用
+      const formData = new FormData();
+      formData.append("namespaceId", namespaceId.toString());
+      formData.append("path", path);
+
+      if (data instanceof Blob) {
+        formData.append("file", data);
+      } else if (typeof data === "string") {
+        formData.append("file", new Blob([data], { type: mimeType || "text/plain" }));
+      } else {
+        formData.append("file", new Blob([data], { type: mimeType || "application/octet-stream" }));
+      }
+
+      body = formData;
     }
 
-    const response = await fetch(`${this.ussp.getServerUrl()}/api/files/upload`, {
+    const response = await this.ussp.request<FileInfo>("/api/files/upload", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.ussp.getAccessToken()}`,
-      },
-      body: formData,
+      data: body,
+      headers,
     });
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(`Upload failed: ${error.error || response.statusText}`);
-    }
-
-    return response.json() as Promise<FileInfo>;
+    return response;
   }
 
   /**
-   * ファイルをダウンロード
+   * ファイルをダウンロード（Node.js/ブラウザ両対応）
    */
   async download(namespaceId: number, path: string): Promise<Buffer | Blob> {
-    const params = new URLSearchParams({
-      namespaceId: namespaceId.toString(),
-      path,
+    const isNode = typeof window === "undefined";
+
+    const response = await this.ussp.request<any>("/api/files/download", {
+      method: "GET",
+      params: {
+        namespaceId: namespaceId.toString(),
+        path,
+      },
     });
 
-    const response = await fetch(
-      `${this.ussp.getServerUrl()}/api/files/download?${params}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.ussp.getAccessToken()}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(`Download failed: ${error.error || response.statusText}`);
-    }
-
-    // ブラウザ環境ではBlob、Node.js環境ではBufferを返す
-    if (typeof window !== "undefined") {
-      return response.blob();
+    if (isNode) {
+      return response;
     } else {
-      return Buffer.from(await response.arrayBuffer());
+      return new Blob([response]);
     }
   }
 

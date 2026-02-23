@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import { generateCodeVerifier, generateCodeChallenge } from "./crypto-utils";
 
 export interface OAuthAuthorizeOptions {
   redirectUri: string;
@@ -27,15 +27,15 @@ export class OAuthClient {
   /**
    * 認可URL を生成してユーザーをリダイレクト
    */
-  generateAuthorizeUrl(options: OAuthAuthorizeOptions): string {
+  async generateAuthorizeUrl(options: OAuthAuthorizeOptions): Promise<string> {
     const clientId = this.ussp.getClientId();
     if (!clientId) {
       throw new Error("clientId is required for OAuth");
     }
 
     // PKCE チャレンジを生成
-    const codeVerifier = this.generateCodeVerifier();
-    const codeChallenge = this.generateCodeChallenge(codeVerifier);
+    const codeVerifier = await generateCodeVerifier();
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
 
     // ローカルストレージに保存（ブラウザ環境）
     if (typeof window !== "undefined") {
@@ -65,10 +65,10 @@ export class OAuthClient {
    * Authorization Codeをアクセストークンと交換
    */
   async exchangeCode(code: string): Promise<OAuthToken> {
-    const codeVerifier =
-      typeof window !== "undefined"
-        ? sessionStorage.getItem("oauth_code_verifier")
-        : null;
+    const isNode = typeof window === "undefined";
+    const codeVerifier = isNode
+      ? null
+      : sessionStorage.getItem("oauth_code_verifier");
 
     if (!codeVerifier) {
       throw new Error("Code verifier not found. Did you call generateAuthorizeUrl?");
@@ -81,6 +81,7 @@ export class OAuthClient {
 
     try {
       const response = await this.ussp.request<OAuthToken>("/oauth/token", {
+        method: "POST",
         data: {
           code,
           client_id: clientId,
@@ -107,9 +108,14 @@ export class OAuthClient {
 
   /**
    * 簡易認可フロー（ブラウザのポップアップを使用）
+   * ブラウザ環境のみ対応
    */
   async authorize(options: OAuthAuthorizeOptions): Promise<OAuthToken> {
-    const authorizeUrl = this.generateAuthorizeUrl(options);
+    if (typeof window === "undefined") {
+      throw new Error("authorize() is only available in browser environment. Use generateAuthorizeUrl() and exchangeCode() separately.");
+    }
+
+    const authorizeUrl = await this.generateAuthorizeUrl(options);
 
     // ポップアップウィンドウを開く
     const width = 500;
@@ -169,6 +175,7 @@ export class OAuthClient {
 
     try {
       const response = await this.ussp.request<OAuthToken>("/oauth/token", {
+        method: "POST",
         data: {
           grant_type: "refresh_token",
           refresh_token: refreshToken,
@@ -189,43 +196,5 @@ export class OAuthClient {
    */
   async revokeToken(): Promise<void> {
     this.ussp.setAccessToken(null);
-  }
-
-  // PKCE ユーティリティ
-  private generateCodeVerifier(): string {
-    if (typeof window !== "undefined" && crypto.getRandomValues) {
-      // ブラウザ環境
-      const array = new Uint8Array(32);
-      crypto.getRandomValues(array);
-      return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join(
-        ""
-      );
-    } else {
-      // Node.js環境
-      const crypto = require("crypto");
-      return crypto.randomBytes(32).toString("hex");
-    }
-  }
-
-  private generateCodeChallenge(codeVerifier: string): string {
-    if (typeof window !== "undefined") {
-      // ブラウザ環境
-      const encoder = new TextEncoder();
-      const data = encoder.encode(codeVerifier);
-      const hash = crypto.subtle.digest("SHA-256", data);
-      return hash.then((buffer) => {
-        const array = Array.from(new Uint8Array(buffer as ArrayBuffer));
-        const base64 = btoa(String.fromCharCode(...array))
-          .replace(/\+/g, "-")
-          .replace(/\//g, "_")
-          .replace(/=/g, "");
-        return base64;
-      });
-    } else {
-      // Node.js環境
-      const crypto = require("crypto");
-      const hash = crypto.createHash("sha256").update(codeVerifier).digest("base64");
-      return hash.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-    }
   }
 }
