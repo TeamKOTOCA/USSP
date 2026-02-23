@@ -1,6 +1,14 @@
 # USSP JavaScript SDK
 
-USSP（分散対応ストレージ基盤）のJavaScript/TypeScript SDKです。
+USSP（分散対応ストレージ基盤）のJavaScript/TypeScript SDKです。**ブラウザをメイン環境として設計**されており、Web アプリケーションから直接 USSP サーバーに接続できます。
+
+## 主な特徴
+
+- **ブラウザ主体設計**: Web アプリケーションでの使用を前提に実装
+- **Node.js 互換**: 同じコードで Node.js 環境でも動作
+- **OAuth2 PKCE フロー対応**: セキュアな認証を実装
+- **マルチバックエンド対応**: Local、S3、Google Drive 等に対応
+- **TypeScript 完全対応**: 型安全な開発が可能
 
 ## インストール
 
@@ -188,10 +196,82 @@ const health = await ussp.admin.healthCheck();
 
 ## ブラウザサポート
 
+USSP SDK はすべての最新ブラウザで動作します：
+
 - Chrome 90+
 - Firefox 88+
 - Safari 14+
 - Edge 90+
+
+### ブラウザでの使用方法
+
+詳細な セットアップ手順と使用例については、[BROWSER_SDK_SETUP.md](./BROWSER_SDK_SETUP.md) を参照してください。
+
+```html
+<!-- CDN から読み込み -->
+<script src="https://cdn.jsdelivr.net/npm/@ussp/sdk@latest/dist/index.js"></script>
+
+<script>
+  // SDK インスタンスを作成（環境変数は本番環境に応じて設定）
+  const ussp = new window.USSP({
+    serverUrl: 'https://api.ussp.example.com',
+    clientId: 'your-client-id',
+  });
+
+  // OAuth ポップアップで認可
+  async function login() {
+    try {
+      const token = await ussp.oauth.authorize({
+        redirectUri: window.location.origin + '/callback',
+      });
+      localStorage.setItem('ussp_token', token.accessToken);
+      ussp.setAccessToken(token.accessToken);
+    } catch (error) {
+      console.error('ログイン失敗:', error);
+    }
+  }
+</script>
+```
+
+### React での使用
+
+```typescript
+import USSP from '@ussp/sdk';
+import { useEffect, useState } from 'react';
+
+export function FileUpload() {
+  const [ussp] = useState(() => new USSP({
+    serverUrl: process.env.REACT_APP_USSP_SERVER,
+    clientId: process.env.REACT_APP_USSP_CLIENT_ID,
+  }));
+
+  return (
+    <input
+      type="file"
+      onChange={async (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          const result = await ussp.files.upload({
+            namespaceId: 1,
+            path: file.name,
+            data: await file.arrayBuffer(),
+            mimeType: file.type,
+          });
+          console.log('アップロード完了:', result);
+        }
+      }}
+    />
+  );
+}
+```
+
+## 環境別の動作確認
+
+SDK は以下の環境で検証済みです：
+
+- **ブラウザ環境**: HTTP リクエストに `fetch` API を使用
+- **Node.js 環境**: `http`/`https` モジュールを使用
+- **両環境での自動切り替え**: `typeof window` で環境を判定
 
 ## ライセンス
 
