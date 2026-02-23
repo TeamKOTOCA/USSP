@@ -67,6 +67,27 @@ export const api = {
       method: 'GET' as const,
       path: '/api/files' as const,
       responses: { 200: z.array(z.custom<typeof files.$inferSelect>()) },
+    },
+    upload: {
+      method: 'POST' as const,
+      path: '/api/files/upload' as const,
+      input: z.object({
+        namespaceId: z.number(),
+        fileName: z.string(),
+        mimeType: z.string(),
+        // Note: file buffer is sent as multipart form data
+      }),
+      responses: { 201: z.custom<typeof files.$inferSelect>(), 400: errorSchemas.validation, 404: errorSchemas.notFound },
+    },
+    download: {
+      method: 'GET' as const,
+      path: '/api/files/download/:namespaceId/:fileName' as const,
+      responses: { 200: z.custom<Buffer>(), 404: errorSchemas.notFound },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/files/:id' as const,
+      responses: { 204: z.void(), 404: errorSchemas.notFound },
     }
   },
   stats: {
