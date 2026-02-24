@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { users } from "@shared/schema";
+import { users, type User } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
 
@@ -56,7 +56,7 @@ export class UserManagement {
 
   async getAllUsers() {
     const allUsers = await db.select().from(users);
-    return allUsers.map((u) => this.sanitizeUser(u));
+    return allUsers.map((u: User) => this.sanitizeUser(u));
   }
 
   async updateUser(id: number, input: UserUpdateInput) {
@@ -103,7 +103,7 @@ export class UserManagement {
     return crypto.createHash("sha256").update(password).digest("hex");
   }
 
-  private sanitizeUser(user: any) {
+  private sanitizeUser(user: User) {
     const { password, ...safeUser } = user;
     return safeUser;
   }

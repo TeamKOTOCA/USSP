@@ -212,7 +212,7 @@ export async function registerRoutes(
 
       // Upload file
       const fileInfo = await fileHandler.uploadFile(
-        { type: adapter.type as any, config: adapter.config },
+        { type: adapter.type as any, config: (adapter.config ?? {}) as Record<string, any> },
         filePath,
         req.rawBody as Buffer
       );
@@ -248,7 +248,7 @@ export async function registerRoutes(
       }
 
       const data = await fileHandler.downloadFile(
-        { type: adapter.type as any, config: adapter.config },
+        { type: adapter.type as any, config: (adapter.config ?? {}) as Record<string, any> },
         filePath as string
       );
 

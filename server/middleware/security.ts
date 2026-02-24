@@ -2,6 +2,20 @@ import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 
 // セッション管理（簡易実装）
+interface TokenPayload {
+  clientId: string;
+  iat: number;
+  exp: number;
+}
+
+function isTokenPayload(payload: Record<string, any>): payload is TokenPayload {
+  return (
+    typeof payload.clientId === "string" &&
+    typeof payload.iat === "number" &&
+    typeof payload.exp === "number"
+  );
+}
+
 const adminSessions = new Map<string, { userId: number; expiresAt: number }>();
 
 // 簡易 JWT 実装（jsonwebtoken ライブラリなしで）
@@ -64,7 +78,7 @@ function verifyJWT(token: string): Record<string, any> | null {
 
 export interface AuthenticatedRequest extends Request {
   adminId?: number;
-  tokenPayload?: { clientId: string; iat: number; exp: number };
+  tokenPayload?: TokenPayload;
   isPublicAccess?: boolean;
 }
 
@@ -111,7 +125,7 @@ export function requireOAuthToken(
   const token = authHeader.slice(7);
   const payload = verifyJWT(token);
 
-  if (!payload) {
+  if (!payload || !isTokenPayload(payload)) {
     return res.status(401).json({ error: "Invalid or expired token" });
   }
 
@@ -155,7 +169,7 @@ export function requireFileAccess(
     const token = authHeader.slice(7);
     const payload = verifyJWT(token);
 
-    if (payload) {
+    if (payload && isTokenPayload(payload)) {
       req.tokenPayload = payload;
       return next();
     }
@@ -188,11 +202,11 @@ export function createAdminSession(userId: number): string {
   adminSessions.set(sessionId, { userId, expiresAt });
 
   // 古いセッションをクリーンアップ
-  for (const [id, session] of adminSessions) {
+  adminSessions.forEach((session, id) => {
     if (session.expiresAt < Date.now()) {
       adminSessions.delete(id);
     }
-  }
+  });
 
   return sessionId;
 }
