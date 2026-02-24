@@ -128,15 +128,12 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Missing required parameters" });
       }
 
-      // Verify client
-      const clients = await storage.getClients();
-      const client = clients.find((c) => c.clientId === clientId);
-      if (!client) {
-        return res.status(400).json({ error: "Invalid client_id" });
-      }
+      // Ensure client and namespace are provisioned from provider-supplied clientId
+      const client = await storage.ensureOAuthClient(clientId, redirectUri);
+      await storage.ensureNamespaceForClient(clientId);
 
-      // Verify redirect URI
-      if (!client.redirectUris.includes(redirectUri)) {
+      // Verify redirect URI after provisioning
+      if (!client.redirectUris.split(",").map((uri) => uri.trim()).includes(redirectUri)) {
         return res.status(400).json({ error: "Invalid redirect_uri" });
       }
 
