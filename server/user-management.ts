@@ -35,6 +35,7 @@ export class UserManagement {
 
   async createUser(input: UserCreateInput) {
     const hashedPassword = this.hashPassword(input.password);
+    const isActive = true;
 
     const [user] = await db
       .insert(users)
@@ -43,6 +44,9 @@ export class UserManagement {
         email: input.email,
         password: hashedPassword,
         role: input.role || "user",
+        // SQLite driver only accepts numbers/strings/buffers/null as bound values.
+        // Use 1/0 for booleans to support the shared pg-style schema.
+        isActive: (isActive ? 1 : 0) as any,
       })
       .returning();
 
@@ -79,7 +83,9 @@ export class UserManagement {
 
     if (input.email !== undefined) updateData.email = input.email;
     if (input.role !== undefined) updateData.role = input.role;
-    if (input.isActive !== undefined) updateData.isActive = input.isActive;
+    if (input.isActive !== undefined) {
+      updateData.isActive = (input.isActive ? 1 : 0) as any;
+    }
     if (input.password !== undefined) {
       updateData.password = this.hashPassword(input.password);
     }
@@ -108,7 +114,7 @@ export class UserManagement {
   async updateLastLogin(id: number) {
     await db
       .update(users)
-      .set({ lastLogin: new Date() })
+      .set({ lastLogin: new Date().toISOString() as any })
       .where(eq(users.id, id));
   }
 
@@ -120,6 +126,9 @@ export class UserManagement {
 
   private sanitizeUser(user: User) {
     const { password, ...safeUser } = user;
+    if (safeUser && "isActive" in safeUser) {
+      (safeUser as any).isActive = Boolean((safeUser as any).isActive);
+    }
     return safeUser;
   }
 }
