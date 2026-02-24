@@ -18,6 +18,21 @@ export interface UserUpdateInput {
 }
 
 export class UserManagement {
+  async hasAnyUsers() {
+    const existingUsers = await db.select({ id: users.id }).from(users).limit(1);
+    return existingUsers.length > 0;
+  }
+
+  async hasAdminUser() {
+    const adminUsers = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.role, "admin"))
+      .limit(1);
+
+    return adminUsers.length > 0;
+  }
+
   async createUser(input: UserCreateInput) {
     const hashedPassword = this.hashPassword(input.password);
 
