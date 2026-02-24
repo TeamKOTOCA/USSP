@@ -27,6 +27,70 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+  app.get("/api/admin/setup-status", async (_req, res) => {
+    const hasUsers = await userManagement.hasAnyUsers();
+    res.json({ requiresSetup: !hasUsers });
+  });
+
+  app.post("/api/admin/setup", async (req, res) => {
+    try {
+      const hasUsers = await userManagement.hasAnyUsers();
+      if (hasUsers) {
+        return res.status(409).json({ error: "Initial setup already completed" });
+      }
+
+      const { username, password, email } = req.body;
+      if (!username || !password) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      const user = await userManagement.createUser({
+        username,
+        password,
+        email,
+        role: "admin",
+      });
+
+      const sessionId = createAdminSession(user.id);
+      res.cookie("admin_session", sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 24 * 60 * 60 * 1000,
+      });
+
+      res.status(201).json({
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+        },
+      });
+    } catch (err) {
+      console.error("Initial admin setup error:", err);
+      res.status(500).json({ error: "Failed to create initial admin account" });
+    }
+  });
+
+  app.get("/api/admin/session", requireAdminSession as any, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!req.adminId) {
+        return res.status(401).json({ error: "Admin session required" });
+      }
+
+      const user = await userManagement.getUser(req.adminId);
+      if (!user) {
+        return res.status(401).json({ error: "Session user not found" });
+      }
+
+      res.json({ user });
+    } catch (err) {
+      console.error("Session check error:", err);
+      res.status(500).json({ error: "Session check failed" });
+    }
+  });
+
   // Adapters (Web UI Admin Only)
   app.get(api.adapters.list.path, requireAdminSession as any, adminOnly as any, async (req, res) => {
     const adapters = await storage.getAdapters();
