@@ -119,9 +119,7 @@ export async function exchangeCodeForToken(
       accessToken,
       refreshToken,
       code: null,
-      expiresAt: (dbClient === "sqlite"
-        ? new Date(Date.now() + 3600000).toISOString()
-        : new Date(Date.now() + 3600000)) as any,
+      expiresAt: new Date(Date.now() + 3600000) as any,
     })
     .where(eq(oauthTokens.code, code));
   
