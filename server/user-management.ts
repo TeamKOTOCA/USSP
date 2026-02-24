@@ -114,7 +114,7 @@ export class UserManagement {
   async updateLastLogin(id: number) {
     await db
       .update(users)
-      .set({ lastLogin: (dbClient === "sqlite" ? new Date().toISOString() : new Date()) as any })
+      .set({ lastLogin: new Date() as any })
       .where(eq(users.id, id));
   }
 

@@ -102,7 +102,7 @@ class BackupQueueProcessor {
         .update(backupQueue)
         .set({
           status: "completed",
-          completedAt: (dbClient === "sqlite" ? new Date().toISOString() : new Date()) as any,
+          completedAt: new Date() as any,
         })
         .where(eq(backupQueue.id, job.id));
 
