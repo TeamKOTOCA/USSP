@@ -142,4 +142,4 @@ if (dbClient === "sqlite") {
   console.log("[DB] Using MySQL (external server)");
 }
 
-export { db, pool, mysqlPool };
+export { db, pool, mysqlPool, dbClient };

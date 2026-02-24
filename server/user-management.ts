@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db, dbClient } from "./db";
 import { users, type User } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import crypto from "crypto";
@@ -114,7 +114,7 @@ export class UserManagement {
   async updateLastLogin(id: number) {
     await db
       .update(users)
-      .set({ lastLogin: new Date().toISOString() as any })
+      .set({ lastLogin: (dbClient === "sqlite" ? new Date().toISOString() : new Date()) as any })
       .where(eq(users.id, id));
   }
 

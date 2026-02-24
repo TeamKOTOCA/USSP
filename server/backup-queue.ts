@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db, dbClient } from "./db";
 import { backupQueue, files as filesTable } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { fileHandler } from "./file-handler";
@@ -102,7 +102,7 @@ class BackupQueueProcessor {
         .update(backupQueue)
         .set({
           status: "completed",
-          completedAt: new Date(),
+          completedAt: (dbClient === "sqlite" ? new Date().toISOString() : new Date()) as any,
         })
         .where(eq(backupQueue.id, job.id));
 
