@@ -105,18 +105,3 @@
   }
 }
 
-@layer utilities {
-  .hover-elevate {
-    @apply transition-all duration-300;
-  }
-  .hover-elevate:hover {
-    @apply -translate-y-0.5 shadow-lg shadow-black/5 dark:shadow-black/20;
-  }
-  .hover-elevate:active {
-    @apply translate-y-0 shadow-sm;
-  }
-  
-  .glass-panel {
-    @apply bg-background/80 backdrop-blur-xl border border-border/50 shadow-sm;
-  }
-}

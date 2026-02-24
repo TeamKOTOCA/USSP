@@ -44,7 +44,7 @@ const namespaceFormSchema = z.object({
 
 type NamespaceFormValues = z.infer<typeof namespaceFormSchema>;
 
-export default function NamespacesPage() {
+export default function ネームスペースPage() {
   const { data: namespaces, isLoading } = useNamespaces();
   const { data: adapters } = useAdapters();
   const deleteMutation = useDeleteNamespace();
@@ -56,14 +56,14 @@ export default function NamespacesPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <FolderTree className="w-8 h-8 text-primary" />
-            Namespaces
+            ネームスペース
           </h1>
           <p className="text-muted-foreground mt-1">Logical buckets that organize files and apply quotas.</p>
         </div>
         <CreateNamespaceDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} adapters={adapters || []} />
       </div>
 
-      <Card className="glass-panel overflow-hidden">
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           <Table>
             <TableHeader className="bg-muted/50">
@@ -71,8 +71,8 @@ export default function NamespacesPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Adapter</TableHead>
                 <TableHead>Quota</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>作成日時</TableHead>
+                <TableHead className="text-right">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -116,7 +116,7 @@ export default function NamespacesPage() {
                           size="icon"
                           className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={() => {
-                            if (confirm(`Delete namespace ${ns.name}?`)) {
+                            if (confirm(`削除 namespace ${ns.name}?`)) {
                               deleteMutation.mutate(ns.id);
                             }
                           }}
@@ -178,13 +178,13 @@ function CreateNamespaceDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button className="gap-2 hover-elevate">
-          <Plus className="w-4 h-4" /> Create Namespace
+        <Button className="gap-2">
+          <Plus className="w-4 h-4" /> ネームスペースを作成
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add Namespace</DialogTitle>
+          <DialogTitle>ネームスペース追加</DialogTitle>
           <DialogDescription>
             Create a logical boundary for storing files.
           </DialogDescription>
@@ -211,7 +211,7 @@ function CreateNamespaceDialog({
               name="storageAdapterId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Storage Adapter</FormLabel>
+                  <FormLabel>ストレージアダプター</FormLabel>
                   <Select 
                     onValueChange={(val) => field.onChange(val === "default" ? null : parseInt(val))} 
                     value={field.value?.toString() || "default"}

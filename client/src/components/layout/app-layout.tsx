@@ -22,10 +22,10 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Storage Adapters", url: "/adapters", icon: Database },
-  { title: "Namespaces", url: "/namespaces", icon: FolderTree },
-  { title: "OAuth Clients", url: "/clients", icon: KeyRound },
+  { title: "ダッシュボード", url: "/", icon: LayoutDashboard },
+  { title: "ストレージアダプター", url: "/adapters", icon: Database },
+  { title: "ネームスペース", url: "/namespaces", icon: FolderTree },
+  { title: "OAuthクライアント", url: "/clients", icon: KeyRound },
 ];
 
 function AppSidebar() {
@@ -40,14 +40,14 @@ function AppSidebar() {
           </div>
           <div className="flex flex-col">
             <span className="font-bold tracking-tight text-sm">USSP Manager</span>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Admin Panel</span>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">管理パネル</span>
           </div>
         </div>
       </SidebarHeader>
       <SidebarContent className="p-4">
         <SidebarGroup>
           <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-            Platform
+            プラットフォーム
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="gap-2">
@@ -87,14 +87,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider style={style}>
-      <div className="flex min-h-screen w-full bg-secondary/30">
+      <div className="flex min-h-screen w-full bg-background">
         <AppSidebar />
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-          <header className="h-16 flex items-center px-6 border-b border-border/50 bg-background/80 backdrop-blur-xl sticky top-0 z-30 shadow-sm">
-            <SidebarTrigger className="hover-elevate hover:bg-muted" />
+          <header className="h-16 flex items-center px-6 border-b border-border/50 bg-background sticky top-0 z-30">
+            <SidebarTrigger className="hover:bg-muted" />
           </header>
           <main className="flex-1 overflow-y-auto p-6 md:p-8 lg:p-10 max-w-7xl mx-auto w-full">
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
+            <div>
               {children}
             </div>
           </main>
