@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { db, dbClient } from "./db";
 import { 
   storageAdapters, namespaces, oauthClients, files,
   type StorageAdapter, type Namespace, type OauthClient, type FileMetadata,
@@ -31,11 +31,38 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   async getAdapters(): Promise<StorageAdapter[]> {
-    return await db.select().from(storageAdapters);
+    const rows = await db.select().from(storageAdapters);
+    if (dbClient !== "sqlite") {
+      return rows;
+    }
+
+    return rows.map((row: any) => ({
+      ...row,
+      isDefault: Boolean(row.isDefault),
+      config:
+        typeof row.config === "string"
+          ? (() => {
+              try {
+                return JSON.parse(row.config);
+              } catch {
+                return {};
+              }
+            })()
+          : (row.config ?? {}),
+    }));
   }
   
   async createAdapter(adapter: InsertStorageAdapter): Promise<StorageAdapter> {
-    const [created] = await db.insert(storageAdapters).values(adapter).returning();
+    const values = {
+      ...adapter,
+      isDefault:
+        adapter.isDefault === undefined
+          ? undefined
+          : ((adapter.isDefault ? 1 : 0) as any),
+      config: dbClient === "sqlite" ? (typeof adapter.config === "string" ? adapter.config : JSON.stringify(adapter.config ?? {})) : adapter.config,
+    } as any;
+
+    const [created] = await db.insert(storageAdapters).values(values).returning();
     return created;
   }
   
@@ -136,7 +163,7 @@ export class DatabaseStorage implements IStorage {
     const [defaultAdapter] = await db
       .select()
       .from(storageAdapters)
-      .where(eq(storageAdapters.isDefault, true))
+      .where(eq(storageAdapters.isDefault, (dbClient === "sqlite" ? 1 : true) as any))
       .limit(1);
 
     const [created] = await db

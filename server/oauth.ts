@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { db } from "./db";
+import { db, dbClient } from "./db";
 import { oauthTokens, oauthClients } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
@@ -119,7 +119,9 @@ export async function exchangeCodeForToken(
       accessToken,
       refreshToken,
       code: null,
-      expiresAt: new Date(Date.now() + 3600000),
+      expiresAt: (dbClient === "sqlite"
+        ? new Date(Date.now() + 3600000).toISOString()
+        : new Date(Date.now() + 3600000)) as any,
     })
     .where(eq(oauthTokens.code, code));
   
