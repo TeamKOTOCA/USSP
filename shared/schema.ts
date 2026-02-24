@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -9,7 +10,7 @@ export const users = pgTable("users", {
   email: text("email"),
   role: text("role", { enum: ["admin", "user"] }).default("user"),
   isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
   lastLogin: timestamp("last_login"),
 });
 
@@ -19,7 +20,7 @@ export const storageAdapters = pgTable("storage_adapters", {
   type: text("type", { enum: ["local", "s3", "gdrive"] }).notNull(),
   config: jsonb("config").notNull().default({}),
   isDefault: boolean("is_default").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 export const namespaces = pgTable("namespaces", {
@@ -27,7 +28,7 @@ export const namespaces = pgTable("namespaces", {
   name: text("name").notNull().unique(),
   storageAdapterId: integer("storage_adapter_id").references(() => storageAdapters.id),
   quotaBytes: integer("quota_bytes"), // null means unlimited
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 export const oauthClients = pgTable("oauth_clients", {
@@ -36,7 +37,7 @@ export const oauthClients = pgTable("oauth_clients", {
   clientId: text("client_id").notNull().unique(),
   clientSecret: text("client_secret").notNull(),
   redirectUris: text("redirect_uris").notNull(), // comma separated
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 export const files = pgTable("files", {
@@ -46,7 +47,7 @@ export const files = pgTable("files", {
   sizeBytes: integer("size_bytes").notNull(),
   mimeType: text("mime_type").notNull(),
   etag: text("etag").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 export const oauthTokens = pgTable("oauth_tokens", {
@@ -59,7 +60,7 @@ export const oauthTokens = pgTable("oauth_tokens", {
   codeChallengeMethod: text("code_challenge_method"),
   redirectUri: text("redirect_uri"),
   expiresAt: timestamp("expires_at"),
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
 });
 
 export const backupQueue = pgTable("backup_queue", {
@@ -69,7 +70,7 @@ export const backupQueue = pgTable("backup_queue", {
   targetAdapterId: integer("target_adapter_id").references(() => storageAdapters.id).notNull(),
   status: text("status", { enum: ["pending", "in_progress", "completed", "failed"] }).default("pending"),
   errorMessage: text("error_message"),
-  createdAt: timestamp("created_at").defaultNow(),
+  createdAt: timestamp("created_at").default(sql`CURRENT_TIMESTAMP`),
   completedAt: timestamp("completed_at"),
 });
 
