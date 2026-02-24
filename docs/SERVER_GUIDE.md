@@ -19,7 +19,27 @@
 
 - Node.js 18+
 - npm / yarn / pnpm
-- PostgreSQL または SQLite（開発環境）
+- PostgreSQL / MySQL / SQLite
+
+### データベース選択（開発/本番共通）
+
+USSP は **開発環境・本番環境どちらでも** PostgreSQL / MySQL / SQLite を利用できます。
+
+- SQLite: アプリ内部で管理（`data/ussp.db`。`SQLITE_PATH` で変更可）
+- PostgreSQL: 外部DBサーバーへ接続
+- MySQL: 外部DBサーバーへ接続
+
+```env
+# sqlite | postgres | mysql
+DB_CLIENT=sqlite
+
+# postgres / mysql 利用時に必須
+DATABASE_URL=postgresql://user:password@db-host:5432/ussp
+# 例: mysql://user:password@db-host:3306/ussp
+
+# sqlite 利用時（任意）
+SQLITE_PATH=./data/ussp.db
+```
 
 ### インストール
 
@@ -181,6 +201,12 @@ Google Drive連携対応予定。
 ---
 
 ## OAuth クライアント管理
+
+### OAuth クライアント運用方針（推奨）
+
+- 開発者は任意の `client_id` をSDK設定に指定します。
+- サーバー側で事前登録しなくても、初回OAuth時に `client_id` をキーとしてOAuthクライアントとnamespaceを自動作成します。
+- `redirect_uri` はリクエスト時の値へそのままリダイレクトされます。
 
 ### クライアント登録
 

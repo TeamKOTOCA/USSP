@@ -48,27 +48,27 @@ export default function ClientsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <KeyRound className="w-8 h-8 text-primary" />
-            OAuth Clients
+            OAuthクライアント
           </h1>
           <p className="text-muted-foreground mt-1">Manage applications authorized to use the USSP SDK.</p>
         </div>
         <CreateClientDialog 
           open={isDialogOpen} 
           onOpenChange={setIsDialogOpen} 
-          onCreated={(client) => setNewClientDetails(client)}
+          on作成日時={(client) => setNewClientDetails(client)}
         />
       </div>
 
-      <Card className="glass-panel overflow-hidden">
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead>App Name</TableHead>
-                <TableHead>Client ID</TableHead>
+                <TableHead>クライアントID</TableHead>
                 <TableHead>Redirect URIs</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>作成日時</TableHead>
+                <TableHead className="text-right">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -105,7 +105,7 @@ export default function ClientsPage() {
                         size="icon"
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={() => {
-                          if (confirm(`Delete client ${client.name}? Applications using this will instantly lose access.`)) {
+                          if (confirm(`削除 client ${client.name}? Applications using this will instantly lose access.`)) {
                             deleteMutation.mutate(client.id);
                           }
                         }}
@@ -136,11 +136,11 @@ export default function ClientsPage() {
 function CreateClientDialog({ 
   open, 
   onOpenChange,
-  onCreated
+  on作成日時
 }: { 
   open: boolean, 
   onOpenChange: (open: boolean) => void,
-  onCreated: (client: OauthClient) => void
+  on作成日時: (client: OauthClient) => void
 }) {
   const createMutation = useCreateClient();
   
@@ -160,7 +160,7 @@ function CreateClientDialog({
           onOpenChange(false);
           form.reset();
           // Pass the returned client (which includes the unhashed secret) to parent
-          onCreated(newClient as unknown as OauthClient); 
+          on作成日時(newClient as unknown as OauthClient); 
         }
       }
     );
@@ -169,13 +169,13 @@ function CreateClientDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button className="gap-2 hover-elevate">
-          <Plus className="w-4 h-4" /> Register Client
+        <Button className="gap-2">
+          <Plus className="w-4 h-4" /> クライアント登録
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Register OAuth Client</DialogTitle>
+          <DialogTitle>OAuthクライアント登録</DialogTitle>
           <DialogDescription>
             Create credentials for a new application to use the USSP API.
           </DialogDescription>
@@ -214,7 +214,7 @@ function CreateClientDialog({
 
             <div className="pt-4 flex justify-end">
               <Button type="submit" disabled={createMutation.isPending} className="w-full sm:w-auto">
-                {createMutation.isPending ? "Generating..." : "Generate Credentials"}
+                {createMutation.isPending ? "生成中..." : "認証情報を生成"}
               </Button>
             </div>
           </form>
@@ -242,13 +242,13 @@ function SecretRevealDialog({ client, onClose }: { client: OauthClient, onClose:
             <CheckCircle2 className="w-6 h-6" /> Client Registered
           </DialogTitle>
           <DialogDescription>
-            Store these credentials securely. <strong className="text-destructive">The Client Secret will never be shown again.</strong>
+            Store these credentials securely. <strong className="text-destructive">The クライアントシークレット will never be shown again.</strong>
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 my-4 p-4 bg-muted/30 border border-border rounded-lg">
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Client ID</label>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">クライアントID</label>
             <div className="flex gap-2">
               <Input readOnly value={client.clientId} className="font-mono bg-background text-sm" />
               <Button size="icon" variant="outline" onClick={() => copyToClipboard(client.clientId, setCopiedId)}>
@@ -258,7 +258,7 @@ function SecretRevealDialog({ client, onClose }: { client: OauthClient, onClose:
           </div>
           
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Client Secret</label>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">クライアントシークレット</label>
             <div className="flex gap-2">
               <Input readOnly value={client.clientSecret} className="font-mono bg-background text-sm" />
               <Button size="icon" variant="outline" onClick={() => copyToClipboard(client.clientSecret, setCopiedSecret)}>
@@ -270,11 +270,11 @@ function SecretRevealDialog({ client, onClose }: { client: OauthClient, onClose:
         
         <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive text-sm rounded-md border border-destructive/20">
           <AlertTriangle className="w-5 h-5 shrink-0" />
-          <p>Please copy the secret now. If you lose it, you will need to delete this client and create a new one.</p>
+          <p>シークレットは今すぐコピーしてください。紛失した場合はクライアントを再作成してください。</p>
         </div>
 
         <DialogFooter className="mt-4">
-          <Button onClick={onClose} className="w-full sm:w-auto">I have copied these credentials</Button>
+          <Button onClick={onClose} className="w-full sm:w-auto">認証情報をコピーしました</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -3,7 +3,6 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import crypto from "crypto";
 import {
   generatePKCEChallenge,
   createAuthorizationCode,
@@ -128,7 +127,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Missing required parameters" });
       }
 
-      // Ensure client and namespace are provisioned from provider-supplied clientId
+      // Auto-provision OAuth client and namespace from developer-defined client_id
       const client = await storage.ensureOAuthClient(clientId, redirectUri);
       await storage.ensureNamespaceForClient(clientId);
 
