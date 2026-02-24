@@ -4,7 +4,7 @@ import {
   type StorageAdapter, type Namespace, type OauthClient, type FileMetadata,
   type InsertStorageAdapter, type InsertNamespace, type InsertOauthClient
 } from "@shared/schema";
-import { eq, count } from "drizzle-orm";
+import { eq, count, sum } from "drizzle-orm";
 import crypto from "crypto";
 
 export interface IStorage {
@@ -81,15 +81,21 @@ export class DatabaseStorage implements IStorage {
     const [{ activeClients }] = await db.select({ activeClients: count() }).from(oauthClients);
     const [{ activeAdapters }] = await db.select({ activeAdapters: count() }).from(storageAdapters);
     const [{ activeNamespaces }] = await db.select({ activeNamespaces: count() }).from(namespaces);
-    
-    const totalStorage = 0; // stub
-    
+    const [{ totalStorageBytes }] = await db
+      .select({ totalStorageBytes: sum(files.sizeBytes) })
+      .from(files);
+
+    const toSafeNumber = (value: unknown): number => {
+      const parsed = Number(value ?? 0);
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
     return {
-      totalStorage,
-      totalFiles,
-      activeClients,
-      activeAdapters,
-      activeNamespaces,
+      totalStorage: toSafeNumber(totalStorageBytes),
+      totalFiles: toSafeNumber(totalFiles),
+      activeClients: toSafeNumber(activeClients),
+      activeAdapters: toSafeNumber(activeAdapters),
+      activeNamespaces: toSafeNumber(activeNamespaces),
     };
   }
 }

@@ -82,7 +82,7 @@ class BackupQueueProcessor {
 
       // Download from source
       const data = await fileHandler.downloadFile(
-        { type: sourceAdapter.type as any, config: sourceAdapter.config },
+        { type: sourceAdapter.type as any, config: (sourceAdapter.config ?? {}) as Record<string, any> },
         fileRecord.path
       );
 
@@ -92,7 +92,7 @@ class BackupQueueProcessor {
 
       // Upload to target
       await fileHandler.uploadFile(
-        { type: targetAdapter.type as any, config: targetAdapter.config },
+        { type: targetAdapter.type as any, config: (targetAdapter.config ?? {}) as Record<string, any> },
         fileRecord.path,
         data
       );
