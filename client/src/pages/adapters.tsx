@@ -68,14 +68,14 @@ export default function AdaptersPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <Database className="w-8 h-8 text-primary" />
-            Storage Adapters
+            ストレージアダプター
           </h1>
           <p className="text-muted-foreground mt-1">Configure physical storage backends like Local, S3, or Google Drive.</p>
         </div>
         <CreateAdapterDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
       </div>
 
-      <Card className="glass-panel overflow-hidden">
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           <Table>
             <TableHeader className="bg-muted/50">
@@ -84,8 +84,8 @@ export default function AdaptersPage() {
                 <TableHead>Type</TableHead>
                 <TableHead>Config Snippet</TableHead>
                 <TableHead>Default</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>作成日時</TableHead>
+                <TableHead className="text-right">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -127,7 +127,7 @@ export default function AdaptersPage() {
                         size="icon"
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={() => {
-                          if (confirm(`Delete adapter ${adapter.name}?`)) {
+                          if (confirm(`削除 adapter ${adapter.name}?`)) {
                             deleteMutation.mutate(adapter.id);
                           }
                         }}
@@ -205,13 +205,13 @@ function CreateAdapterDialog({ open, onOpenChange }: { open: boolean, onOpenChan
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button className="gap-2 hover-elevate">
-          <Plus className="w-4 h-4" /> Create Adapter
+        <Button className="gap-2">
+          <Plus className="w-4 h-4" /> アダプターを作成
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Add Storage Adapter</DialogTitle>
+          <DialogTitle>ストレージアダプター追加</DialogTitle>
           <DialogDescription>
             Configure a new physical storage backend for your platform.
           </DialogDescription>
@@ -238,7 +238,7 @@ function CreateAdapterDialog({ open, onOpenChange }: { open: boolean, onOpenChan
               name="type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Storage Type</FormLabel>
+                  <FormLabel>ストレージ種別</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -262,7 +262,7 @@ function CreateAdapterDialog({ open, onOpenChange }: { open: boolean, onOpenChan
                 name="localPath"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Storage Path</FormLabel>
+                    <FormLabel>保存パス</FormLabel>
                     <FormControl>
                       <Input placeholder="/var/ussp/data" {...field} />
                     </FormControl>
@@ -351,7 +351,7 @@ function CreateAdapterDialog({ open, onOpenChange }: { open: boolean, onOpenChan
                   name="gdriveClientId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Client ID</FormLabel>
+                      <FormLabel>クライアントID</FormLabel>
                       <FormControl>
                         <Input placeholder="YOUR_CLIENT_ID" {...field} />
                       </FormControl>
@@ -364,7 +364,7 @@ function CreateAdapterDialog({ open, onOpenChange }: { open: boolean, onOpenChan
                   name="gdriveClientSecret"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Client Secret</FormLabel>
+                      <FormLabel>クライアントシークレット</FormLabel>
                       <FormControl>
                         <Input type="password" placeholder="YOUR_SECRET" {...field} />
                       </FormControl>

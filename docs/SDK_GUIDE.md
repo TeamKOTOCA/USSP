@@ -2,7 +2,10 @@
 
 ## 概要
 
-USSP JavaScript SDKは、Web アプリケーションからセキュアにUSPS サーバーにアクセスするためのライブラリです。OAuth2.0フロー、PKCE認証、ファイル操作を簡潔に扱えます。
+USSP JavaScript SDKは、WebアプリケーションからUSSPサーバーへ接続するためのライブラリです。OAuth2.0 + PKCE、ファイル操作を扱えます。
+
+> `clientId` は必須です。
+> ただしサーバーへの事前クライアント登録は不要で、初回OAuth時に自動プロビジョニングされます。
 
 ---
 
@@ -25,108 +28,31 @@ pnpm add ussp-sdk
 ```javascript
 import { USSP } from 'ussp-sdk';
 
-// サーバーURL設定
-USSP.config.url('https://storage.example.com');
-
-// 初期化（クライアント情報を登録）
-await USSP.init({
-  clientId: 'your-client-id',
-  redirectUri: 'https://yourapp.com/callback'
+const ussp = new USSP({
+  serverUrl: 'https://storage.example.com',
+  clientId: 'my-service-client-id' // 開発者が任意で決める識別子
 });
 ```
 
 ### 2. ログイン（OAuth フロー）
 
 ```javascript
-// ユーザーをログインページにリダイレクト
-USSP.auth.login();
-
-// コールバックページで処理
-// https://yourapp.com/callback?code=...&state=...
+const authUrl = await ussp.oauth.generateAuthorizeUrl({
+  redirectUri: 'https://yourapp.com/callback',
+  state: 'optional-state'
+});
+window.location.href = authUrl;
 ```
 
 ### 3. コールバック処理
 
 ```javascript
-// コールバックページ (pages/callback.js)
-import { USSP } from 'ussp-sdk';
-
-async function handleCallback() {
-  try {
-    // URL のクエリパラメータから認可コードを取得
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    
-    if (!code) {
-      throw new Error('No authorization code');
-    }
-
-    // トークンを交換
-    const token = await USSP.auth.exchangeCode(code);
-    
-    // ローカルストレージに保存（またはセッションストレージ）
-    localStorage.setItem('ussp_token', token.access_token);
-    
-    // ホームページにリダイレクト
-    window.location.href = '/';
-  } catch (error) {
-    console.error('Callback error:', error);
-  }
+const code = new URLSearchParams(window.location.search).get('code');
+if (code) {
+  const token = await ussp.oauth.exchangeCode(code);
+  ussp.setAccessToken(token.accessToken);
 }
-
-handleCallback();
 ```
-
-### 4. ファイルアップロード
-
-```javascript
-// ファイルアップロード
-const file = document.getElementById('file-input').files[0];
-const namespaceId = 1; // 事前に作成したnamespace
-
-const result = await USSP.files.upload({
-  namespaceId,
-  path: `uploads/${file.name}`,
-  file: file  // File または Blob
-});
-
-console.log('Upload complete:', result);
-// {
-//   path: "uploads/document.pdf",
-//   size: 1024000,
-//   mimeType: "application/pdf",
-//   etag: "abc123def456"
-// }
-```
-
-### 5. ファイルダウンロード
-
-```javascript
-// ファイルダウンロード
-const data = await USSP.files.download({
-  namespaceId: 1,
-  path: 'uploads/document.pdf'
-});
-
-// BlobからURLを作成
-const url = URL.createObjectURL(data);
-const a = document.createElement('a');
-a.href = url;
-a.download = 'document.pdf';
-a.click();
-URL.revokeObjectURL(url);
-```
-
-### 6. ファイル削除
-
-```javascript
-await USSP.files.delete({
-  namespaceId: 1,
-  path: 'uploads/document.pdf'
-});
-```
-
----
 
 ## API リファレンス
 

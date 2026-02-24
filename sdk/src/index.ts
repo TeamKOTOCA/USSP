@@ -6,7 +6,7 @@ import { httpRequest } from "./http-client";
 
 export interface USSPConfig {
   serverUrl: string;
-  clientId?: string;
+  clientId: string;
   clientSecret?: string;
 }
 

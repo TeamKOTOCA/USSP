@@ -110,7 +110,7 @@ export async function exchangeCodeForToken(
     }
   }
   
-  const accessToken = generateAccessToken(clientId);
+  const accessToken = generateAccessToken(token.clientId);
   const refreshToken = crypto.randomBytes(32).toString("hex");
   
   await db
