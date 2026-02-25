@@ -77,7 +77,7 @@ export const backupQueue = pgTable("backup_queue", {
 export const insertStorageAdapterSchema = createInsertSchema(storageAdapters).omit({ id: true, createdAt: true });
 // For forms, config is often typed as a string then parsed to JSON, but we'll accept any object here
 export const insertNamespaceSchema = createInsertSchema(namespaces).omit({ id: true, createdAt: true });
-export const insertOauthClientSchema = createInsertSchema(oauthClients).omit({ id: true, clientId: true, clientSecret: true, createdAt: true });
+export const insertOauthClientSchema = createInsertSchema(oauthClients).omit({ id: true, clientSecret: true, createdAt: true });
 
 export type User = typeof users.$inferSelect;
 export type StorageAdapter = typeof storageAdapters.$inferSelect;

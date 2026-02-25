@@ -31,6 +31,7 @@ import type { OauthClient } from "@shared/schema";
 
 const clientFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
+  clientId: z.string().min(3, "ClientSpace は3文字以上で入力してください"),
   redirectUris: z.string().min(5, "Provide at least one redirect URI"),
 });
 
@@ -50,12 +51,12 @@ export default function ClientsPage() {
             <KeyRound className="w-8 h-8 text-primary" />
             OAuthクライアント
           </h1>
-          <p className="text-muted-foreground mt-1">Manage applications authorized to use the USSP SDK.</p>
+          <p className="text-muted-foreground mt-1">サービス提供者が設定する ClientSpace と OAuth 設定を管理します。</p>
         </div>
         <CreateClientDialog 
           open={isDialogOpen} 
           onOpenChange={setIsDialogOpen} 
-          on作成日時={(client) => setNewClientDetails(client)}
+          onCreated={(client) => setNewClientDetails(client)}
         />
       </div>
 
@@ -65,7 +66,7 @@ export default function ClientsPage() {
             <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead>App Name</TableHead>
-                <TableHead>クライアントID</TableHead>
+                <TableHead>ClientSpace</TableHead>
                 <TableHead>Redirect URIs</TableHead>
                 <TableHead>作成日時</TableHead>
                 <TableHead className="text-right">操作</TableHead>
@@ -122,7 +123,6 @@ export default function ClientsPage() {
         </CardContent>
       </Card>
 
-      {/* Secret Display Modal - Shown only immediately after creation */}
       {newClientDetails && (
         <SecretRevealDialog 
           client={newClientDetails} 
@@ -136,11 +136,11 @@ export default function ClientsPage() {
 function CreateClientDialog({ 
   open, 
   onOpenChange,
-  on作成日時
+  onCreated
 }: { 
   open: boolean, 
   onOpenChange: (open: boolean) => void,
-  on作成日時: (client: OauthClient) => void
+  onCreated: (client: OauthClient) => void
 }) {
   const createMutation = useCreateClient();
   
@@ -148,36 +148,33 @@ function CreateClientDialog({
     resolver: zodResolver(clientFormSchema),
     defaultValues: {
       name: "",
+      clientId: "",
       redirectUris: "http://localhost:3000/callback",
     },
   });
 
   function onSubmit(data: ClientFormValues) {
-    createMutation.mutate(
-      data,
-      {
-        onSuccess: (newClient) => {
-          onOpenChange(false);
-          form.reset();
-          // Pass the returned client (which includes the unhashed secret) to parent
-          on作成日時(newClient as unknown as OauthClient); 
-        }
+    createMutation.mutate(data, {
+      onSuccess: (newClient) => {
+        onOpenChange(false);
+        form.reset();
+        onCreated(newClient);
       }
-    );
+    });
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button className="gap-2">
-          <Plus className="w-4 h-4" /> クライアント登録
+          <Plus className="w-4 h-4" /> OAuthクライアントを作成
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>OAuthクライアント登録</DialogTitle>
           <DialogDescription>
-            Create credentials for a new application to use the USSP API.
+            ClientSpace はサービス提供者が任意に決める識別子です。OAuth 承認画面でユーザーへ明示されます。
           </DialogDescription>
         </DialogHeader>
 
@@ -188,10 +185,25 @@ function CreateClientDialog({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Application Name</FormLabel>
+                  <FormLabel>App Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g. My Next.js Frontend" {...field} />
+                    <Input placeholder="e.g. My Web App" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="clientId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>ClientSpace</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g. com.example.billing" {...field} />
+                  </FormControl>
+                  <FormDescription>既存 ClientID 相当の値です。サービス提供者が独自設定してください。</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -202,9 +214,9 @@ function CreateClientDialog({
               name="redirectUris"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Redirect URIs (comma separated)</FormLabel>
+                  <FormLabel>Redirect URI(s)</FormLabel>
                   <FormControl>
-                    <Input placeholder="https://app.com/api/auth/callback" {...field} />
+                    <Input placeholder="https://yourapp.com/callback" {...field} />
                   </FormControl>
                   <FormDescription>Where to send users after authorization.</FormDescription>
                   <FormMessage />
@@ -214,7 +226,7 @@ function CreateClientDialog({
 
             <div className="pt-4 flex justify-end">
               <Button type="submit" disabled={createMutation.isPending} className="w-full sm:w-auto">
-                {createMutation.isPending ? "生成中..." : "認証情報を生成"}
+                {createMutation.isPending ? "Creating..." : "Create Client"}
               </Button>
             </div>
           </form>
@@ -228,10 +240,14 @@ function SecretRevealDialog({ client, onClose }: { client: OauthClient, onClose:
   const [copiedId, setCopiedId] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
 
-  const copyToClipboard = (text: string, setter: (val: boolean) => void) => {
-    navigator.clipboard.writeText(text);
-    setter(true);
-    setTimeout(() => setter(false), 2000);
+  const copyToClipboard = async (text: string, setCopied: (val: boolean) => void) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // no-op
+    }
   };
 
   return (
@@ -239,36 +255,36 @@ function SecretRevealDialog({ client, onClose }: { client: OauthClient, onClose:
       <DialogContent className="sm:max-w-[500px] border-primary/20">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-primary">
-            <CheckCircle2 className="w-6 h-6" /> Client Registered
+            <CheckCircle2 className="w-5 h-5" /> OAuth Client created
           </DialogTitle>
           <DialogDescription>
-            Store these credentials securely. <strong className="text-destructive">The クライアントシークレット will never be shown again.</strong>
+            この情報は一度だけ表示されます。安全な場所に保存してください。
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 my-4 p-4 bg-muted/30 border border-border rounded-lg">
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">クライアントID</label>
+        <div className="space-y-3 pt-2">
+          <div className="space-y-1">
+            <p className="text-sm font-medium">ClientSpace</p>
             <div className="flex gap-2">
               <Input readOnly value={client.clientId} className="font-mono bg-background text-sm" />
               <Button size="icon" variant="outline" onClick={() => copyToClipboard(client.clientId, setCopiedId)}>
-                {copiedId ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                {copiedId ? <CheckCircle2 className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
               </Button>
             </div>
           </div>
-          
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">クライアントシークレット</label>
+
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Client Secret</p>
             <div className="flex gap-2">
               <Input readOnly value={client.clientSecret} className="font-mono bg-background text-sm" />
               <Button size="icon" variant="outline" onClick={() => copyToClipboard(client.clientSecret, setCopiedSecret)}>
-                {copiedSecret ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                {copiedSecret ? <CheckCircle2 className="w-4 h-4 text-primary" /> : <Copy className="w-4 h-4" />}
               </Button>
             </div>
           </div>
         </div>
-        
-        <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive text-sm rounded-md border border-destructive/20">
+
+        <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/5 p-3 rounded-md border border-destructive/20">
           <AlertTriangle className="w-5 h-5 shrink-0" />
           <p>シークレットは今すぐコピーしてください。紛失した場合はクライアントを再作成してください。</p>
         </div>

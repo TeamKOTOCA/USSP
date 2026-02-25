@@ -69,3 +69,32 @@ export function useDeleteNamespace() {
     }
   });
 }
+
+export function useUpdateNamespace() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: { storageAdapterId?: number | null; quotaBytes?: number | null } }) => {
+      const url = buildUrl(api.namespaces.update.path, { id });
+      const res = await fetch(url, {
+        method: api.namespaces.update.method,
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "Failed to update namespace" }));
+        throw new Error(err.message || "Failed to update namespace");
+      }
+      return api.namespaces.update.responses[200].parse(await res.json());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.namespaces.list.path] });
+      toast({ title: "Namespace updated" });
+    },
+    onError: (err) => {
+      toast({ title: "Failed to update namespace", description: err.message, variant: "destructive" });
+    }
+  });
+}

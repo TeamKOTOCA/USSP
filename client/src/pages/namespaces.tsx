@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNamespaces, useCreateNamespace, useDeleteNamespace } from "@/hooks/use-namespaces";
+import { useNamespaces, useCreateNamespace, useDeleteNamespace, useUpdateNamespace } from "@/hooks/use-namespaces";
 import { useAdapters } from "@/hooks/use-adapters";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -48,6 +48,7 @@ export default function ネームスペースPage() {
   const { data: namespaces, isLoading } = useNamespaces();
   const { data: adapters } = useAdapters();
   const deleteMutation = useDeleteNamespace();
+  const updateMutation = useUpdateNamespace();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   return (
@@ -69,7 +70,7 @@ export default function ネームスペースPage() {
             <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Adapter</TableHead>
+                <TableHead>保存先ストレージ</TableHead>
                 <TableHead>Quota</TableHead>
                 <TableHead>作成日時</TableHead>
                 <TableHead className="text-right">操作</TableHead>
@@ -88,21 +89,33 @@ export default function ネームスペースPage() {
                 </TableRow>
               ) : (
                 namespaces?.map((ns) => {
-                  const adapter = adapters?.find(a => a.id === ns.storageAdapterId);
                   return (
                     <TableRow key={ns.id} className="hover:bg-muted/30 transition-colors">
                       <TableCell className="font-medium text-primary">
                         {ns.name}
                       </TableCell>
                       <TableCell>
-                        {adapter ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">{adapter.name}</span>
-                            <span className="text-[10px] bg-secondary px-1.5 py-0.5 rounded uppercase text-secondary-foreground">{adapter.type}</span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground italic">Default</span>
-                        )}
+                        <Select
+                          value={ns.storageAdapterId ? String(ns.storageAdapterId) : "default"}
+                          onValueChange={(value) => {
+                            updateMutation.mutate({
+                              id: ns.id,
+                              data: { storageAdapterId: value === "default" ? null : Number(value) },
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="w-[220px]">
+                            <SelectValue placeholder="Use Default Adapter" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="default">Default</SelectItem>
+                            {adapters?.map((adapter) => (
+                              <SelectItem key={adapter.id} value={String(adapter.id)}>
+                                {adapter.name} ({adapter.type})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell className="font-mono text-sm">
                         {ns.quotaBytes ? formatBytes(ns.quotaBytes) : <span className="text-muted-foreground">Unlimited</span>}

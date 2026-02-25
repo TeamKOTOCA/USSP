@@ -14,15 +14,16 @@ export interface IStorage {
   
   getNamespaces(): Promise<Namespace[]>;
   createNamespace(ns: InsertNamespace): Promise<Namespace>;
+  updateNamespace(id: number, ns: Partial<InsertNamespace>): Promise<Namespace | null>;
   deleteNamespace(id: number): Promise<void>;
   
   getClients(): Promise<OauthClient[]>;
   getClientByClientId(clientId: string): Promise<OauthClient | null>;
-  ensureOAuthClient(clientId: string, redirectUri: string): Promise<OauthClient>;
+  ensureOAuthClient(clientSpace: string, redirectUri: string): Promise<OauthClient>;
   createClient(client: InsertOauthClient): Promise<OauthClient>;
   deleteClient(id: number): Promise<void>;
 
-  ensureNamespaceForClient(clientId: string): Promise<Namespace>;
+  ensureNamespaceForClient(clientSpace: string): Promise<Namespace>;
   
   getFiles(): Promise<FileMetadata[]>;
   
@@ -78,6 +79,16 @@ export class DatabaseStorage implements IStorage {
     const [created] = await db.insert(namespaces).values(ns).returning();
     return created;
   }
+
+  async updateNamespace(id: number, ns: Partial<InsertNamespace>): Promise<Namespace | null> {
+    const [updated] = await db
+      .update(namespaces)
+      .set(ns)
+      .where(eq(namespaces.id, id))
+      .returning();
+
+    return updated ?? null;
+  }
   
   async deleteNamespace(id: number): Promise<void> {
     await db.delete(namespaces).where(eq(namespaces.id, id));
@@ -97,15 +108,15 @@ export class DatabaseStorage implements IStorage {
     return client ?? null;
   }
 
-  async ensureOAuthClient(clientId: string, redirectUri: string): Promise<OauthClient> {
-    const existing = await this.getClientByClientId(clientId);
+  async ensureOAuthClient(clientSpace: string, redirectUri: string): Promise<OauthClient> {
+    const existing = await this.getClientByClientId(clientSpace);
     if (!existing) {
       const clientSecret = crypto.randomBytes(32).toString('hex');
       const [created] = await db
         .insert(oauthClients)
         .values({
-          name: `OAuth Client ${clientId}`,
-          clientId,
+          name: `OAuth ClientSpace ${clientSpace}`,
+          clientId: clientSpace,
           clientSecret,
           redirectUris: redirectUri,
         })
@@ -134,12 +145,10 @@ export class DatabaseStorage implements IStorage {
   }
   
   async createClient(client: InsertOauthClient): Promise<OauthClient> {
-    const clientId = crypto.randomBytes(16).toString('hex');
     const clientSecret = crypto.randomBytes(32).toString('hex');
-    
+
     const [created] = await db.insert(oauthClients).values({
       ...client,
-      clientId,
       clientSecret,
     }).returning();
     return created;
@@ -149,11 +158,11 @@ export class DatabaseStorage implements IStorage {
     await db.delete(oauthClients).where(eq(oauthClients.id, id));
   }
 
-  async ensureNamespaceForClient(clientId: string): Promise<Namespace> {
+  async ensureNamespaceForClient(clientSpace: string): Promise<Namespace> {
     const [existingNamespace] = await db
       .select()
       .from(namespaces)
-      .where(eq(namespaces.name, clientId))
+      .where(eq(namespaces.name, clientSpace))
       .limit(1);
 
     if (existingNamespace) {
@@ -169,7 +178,7 @@ export class DatabaseStorage implements IStorage {
     const [created] = await db
       .insert(namespaces)
       .values({
-        name: clientId,
+        name: clientSpace,
         storageAdapterId: defaultAdapter?.id,
       })
       .returning();
