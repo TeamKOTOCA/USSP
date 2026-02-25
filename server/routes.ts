@@ -4,10 +4,8 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import {
-  generatePKCEChallenge,
   createAuthorizationCode,
   exchangeCodeForToken,
-  validateAccessToken,
 } from "./oauth";
 import { fileHandler } from "./file-handler";
 import { backupProcessor } from "./backup-queue";
@@ -16,11 +14,11 @@ import {
   requireAdminSession,
   requireOAuthToken,
   adminOnly,
-  requireFileAccess,
   createAdminSession,
   destroyAdminSession,
   type AuthenticatedRequest,
 } from "./middleware/security";
+import { getRecentRequestLogs } from "./request-logs";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -104,6 +102,11 @@ export async function registerRoutes(
     res.status(204).end();
   });
 
+  app.get("/api/admin/logs", requireAdminSession as any, adminOnly as any, async (req, res) => {
+    const limit = Number(req.query.limit ?? 100);
+    res.json(getRecentRequestLogs(Number.isFinite(limit) ? limit : 100));
+  });
+
   // Adapters (Web UI Admin Only)
   app.get(api.adapters.list.path, requireAdminSession as any, adminOnly as any, async (req, res) => {
     const adapters = await storage.getAdapters();
@@ -156,6 +159,26 @@ export async function registerRoutes(
     res.status(204).end();
   });
 
+  app.patch("/api/namespaces/:id", requireAdminSession as any, adminOnly as any, async (req, res) => {
+    try {
+      const schema = z.object({
+        storageAdapterId: z.coerce.number().nullable().optional(),
+        quotaBytes: z.coerce.number().nullable().optional(),
+      });
+      const updateData = schema.parse(req.body);
+      const ns = await storage.updateNamespace(Number(req.params.id), updateData);
+      if (!ns) {
+        return res.status(404).json({ error: "Namespace not found" });
+      }
+      res.json(ns);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message, field: err.errors[0].path.join('.') });
+      }
+      throw err;
+    }
+  });
+
   // Clients (Web UI Admin Only)
   app.get(api.clients.list.path, requireAdminSession as any, adminOnly as any, async (req, res) => {
     const clients = await storage.getClients();
@@ -194,41 +217,89 @@ export async function registerRoutes(
   // OAuth Endpoints
   app.get("/oauth/authorize", async (req, res) => {
     try {
-      const clientId = req.query.client_id as string;
+      const clientSpace = req.query.client_id as string;
       const redirectUri = req.query.redirect_uri as string;
       const codeChallenge = req.query.code_challenge as string;
       const codeChallengeMethod = (req.query.code_challenge_method as string) || "plain";
       const state = req.query.state as string;
 
-      if (!clientId || !redirectUri) {
+      if (!clientSpace || !redirectUri || !codeChallenge) {
         return res.status(400).json({ error: "Missing required parameters" });
       }
 
-      // Auto-provision OAuth client and namespace from developer-defined client_id
-      const client = await storage.ensureOAuthClient(clientId, redirectUri);
-      await storage.ensureNamespaceForClient(clientId);
+      const client = await storage.ensureOAuthClient(clientSpace, redirectUri);
+      await storage.ensureNamespaceForClient(clientSpace);
 
-      // Verify redirect URI after provisioning
       if (!client.redirectUris.split(",").map((uri) => uri.trim()).includes(redirectUri)) {
         return res.status(400).json({ error: "Invalid redirect_uri" });
       }
 
-      // Generate authorization code
-      const code = await createAuthorizationCode(
-        clientId,
-        redirectUri,
-        codeChallenge,
-        codeChallengeMethod as "S256" | "plain"
-      );
+      const serviceUrl = `${req.protocol}://${req.get("host")}`;
+      const params = new URLSearchParams({
+        client_id: clientSpace,
+        redirect_uri: redirectUri,
+        code_challenge: codeChallenge,
+        code_challenge_method: codeChallengeMethod,
+      });
+      if (state) params.set("state", state);
 
-      // Redirect to client with code
-      const redirectUrl = new URL(redirectUri);
-      redirectUrl.searchParams.set("code", code);
-      if (state) redirectUrl.searchParams.set("state", state);
+      const hiddenInputs = Array.from(params.entries())
+        .map(([key, value]) => `<input type="hidden" name="${key}" value="${String(value).replace(/"/g, "&quot;")}">`)
+        .join("");
 
-      res.redirect(redirectUrl.toString());
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(`<!doctype html>
+<html lang="ja">
+  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>USSP OAuth 承認</title></head>
+  <body style="font-family: sans-serif; max-width: 680px; margin: 40px auto; padding: 0 16px;">
+    <h1>USSP アクセス許可</h1>
+    <p>以下のアプリケーションからアクセス要求が来ています。サービス提供者が設定した <strong>ClientSpace</strong> を確認して許可してください。</p>
+    <ul>
+      <li><strong>サービスURL:</strong> ${serviceUrl}</li>
+      <li><strong>ClientSpace:</strong> ${clientSpace}</li>
+      <li><strong>アプリ名:</strong> ${client.name}</li>
+    </ul>
+    <form method="post" action="/oauth/authorize/consent" style="display:flex; gap:12px; margin-top:24px;">
+      ${hiddenInputs}
+      <button type="submit" name="decision" value="approve" style="padding:10px 18px;">許可する</button>
+      <button type="submit" name="decision" value="deny" style="padding:10px 18px;">拒否する</button>
+    </form>
+  </body>
+</html>`);
     } catch (err) {
       console.error("OAuth authorize error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/oauth/authorize/consent", async (req, res) => {
+    try {
+      const { decision, client_id, redirect_uri, code_challenge, code_challenge_method, state } = req.body;
+
+      if (!client_id || !redirect_uri || !code_challenge) {
+        return res.status(400).json({ error: "Missing required parameters" });
+      }
+
+      if (decision !== "approve") {
+        const denied = new URL(redirect_uri);
+        denied.searchParams.set("error", "access_denied");
+        if (state) denied.searchParams.set("state", state);
+        return res.redirect(denied.toString());
+      }
+
+      const code = await createAuthorizationCode(
+        client_id,
+        redirect_uri,
+        code_challenge,
+        (code_challenge_method || "plain") as "S256" | "plain"
+      );
+
+      const redirectUrl = new URL(redirect_uri);
+      redirectUrl.searchParams.set("code", code);
+      if (state) redirectUrl.searchParams.set("state", state);
+      res.redirect(redirectUrl.toString());
+    } catch (err) {
+      console.error("OAuth consent error:", err);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -523,6 +594,7 @@ export async function seedDatabase() {
     
     await storage.createClient({
       name: "Demo Web App",
+      clientId: "demo.web.app",
       redirectUris: "http://localhost:5000/callback",
     });
   }

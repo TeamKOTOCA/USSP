@@ -14,6 +14,7 @@ import AdaptersPage from "@/pages/adapters";
 import NamespacesPage from "@/pages/namespaces";
 import ClientsPage from "@/pages/clients";
 import UsersPage from "@/pages/users";
+import LogsPage from "@/pages/logs";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -25,6 +26,7 @@ function Router() {
         <Route path="/namespaces" component={NamespacesPage} />
         <Route path="/clients" component={ClientsPage} />
         <Route path="/users" component={UsersPage} />
+        <Route path="/logs" component={LogsPage} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

@@ -5,6 +5,7 @@ import { createServer } from "http";
 import fs from "fs";
 import path from "path";
 import { backupProcessor } from "./backup-queue";
+import { recordRequestLog } from "./request-logs";
 
 const app = express();
 const httpServer = createServer(app);
@@ -55,6 +56,14 @@ app.use((req, res, next) => {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
+      recordRequestLog({
+        timestamp: new Date().toISOString(),
+        method: req.method,
+        path,
+        statusCode: res.statusCode,
+        durationMs: duration,
+        response: capturedJsonResponse,
+      });
       log(logLine);
     }
   });

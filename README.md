@@ -136,7 +136,7 @@ SDK の役割：
 
 ```js
 USSP.config.url("https://storage.example.com")
-await USSP.init({ clientId: "appId" })
+await USSP.init({ clientId: "com.example.billing" }) // = ClientSpace
 await USSP.upload("memo.txt", blob)
 ```
 
@@ -149,8 +149,11 @@ SDK は最小限の依存で安全に扱えるようにする。
 最低限の UI 機能：
 
 * サーバー Storage Adapter 設定画面（Local/S3/R2/Drive など）
-* OAuth クライアント登録・管理
-* Namespace・Storage Policy 設定
+* OAuth クライアント登録・管理（ClientID相当は `ClientSpace` として運用）
+* OAuth 許可画面でサービスURLとClientSpaceをユーザーへ明示
+* ユーザー管理
+* 各種ログ確認
+* Namespace・保存先ストレージ選択・Storage Policy 設定
 * 使用状況・クォータ表示
 
 ---

@@ -204,9 +204,10 @@ Google Drive連携対応予定。
 
 ### OAuth クライアント運用方針（推奨）
 
-- 開発者は任意の `client_id` をSDK設定に指定します。
-- サーバー側で事前登録しなくても、初回OAuth時に `client_id` をキーとしてOAuthクライアントとnamespaceを自動作成します。
-- `redirect_uri` はリクエスト時の値へそのままリダイレクトされます。
+- 開発者は任意の `client_id` を設定しますが、USSPではこの値を **ClientSpace** として扱います。
+- 本番/開発を問わず動的登録され、初回OAuth時に `client_id(ClientSpace)` をキーとしてOAuthクライアントとnamespaceを自動作成します。
+- OAuth承認画面では、ユーザーに `サービスURL` と `ClientSpace` を明示して明示的な許可操作を要求します。
+- `redirect_uri` はクライアントの許可済みURIとして自動追記され、承認後に該当URIへリダイレクトされます。
 
 ### クライアント登録
 
@@ -588,3 +589,14 @@ tail -f data/logs/app.log | grep -i backup
 ## デプロイメント
 
 詳細は [DEPLOYMENT.md](./DEPLOYMENT.md) を参照してください。
+
+
+## Web UI 管理機能
+
+現在の Web UI では以下を管理できます。
+
+- ユーザー管理（作成/ロール変更/有効無効）
+- 各種ログ確認（直近 API リクエストログ）
+- ネームスペースごとの保存先ストレージ選択
+- ストレージアダプター設定
+- OAuth クライアント（ClientSpace）管理

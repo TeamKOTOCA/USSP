@@ -6,7 +6,8 @@ import {
   KeyRound, 
   LayoutDashboard, 
   Settings2,
-  UserCog
+  UserCog,
+  ScrollText
 } from "lucide-react";
 import {
   Sidebar,
@@ -28,6 +29,7 @@ const navItems = [
   { title: "ネームスペース", url: "/namespaces", icon: FolderTree },
   { title: "OAuthクライアント", url: "/clients", icon: KeyRound },
   { title: "ユーザー", url: "/users", icon: UserCog },
+  { title: "各種ログ", url: "/logs", icon: ScrollText },
 ];
 
 function AppSidebar() {

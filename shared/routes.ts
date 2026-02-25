@@ -42,7 +42,16 @@ export const api = {
       method: 'DELETE' as const,
       path: '/api/namespaces/:id' as const,
       responses: { 204: z.void(), 404: errorSchemas.notFound },
-    }
+    },
+    update: {
+      method: 'PATCH' as const,
+      path: '/api/namespaces/:id' as const,
+      input: z.object({
+        storageAdapterId: z.number().nullable().optional(),
+        quotaBytes: z.number().nullable().optional(),
+      }),
+      responses: { 200: z.custom<typeof namespaces.$inferSelect>(), 400: errorSchemas.validation, 404: errorSchemas.notFound },
+    },
   },
   clients: {
     list: {
