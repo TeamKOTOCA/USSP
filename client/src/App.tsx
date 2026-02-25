@@ -13,6 +13,7 @@ import Dashboard from "@/pages/dashboard";
 import AdaptersPage from "@/pages/adapters";
 import NamespacesPage from "@/pages/namespaces";
 import ClientsPage from "@/pages/clients";
+import UsersPage from "@/pages/users";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -23,6 +24,7 @@ function Router() {
         <Route path="/adapters" component={AdaptersPage} />
         <Route path="/namespaces" component={NamespacesPage} />
         <Route path="/clients" component={ClientsPage} />
+        <Route path="/users" component={UsersPage} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>
@@ -103,6 +105,12 @@ function AuthGate() {
     setLoading(false);
   };
 
+  const handleLogout = async () => {
+    await fetch("/api/admin/logout", { method: "POST", credentials: "include" });
+    queryClient.clear();
+    await refetchSession();
+  };
+
   if (isSetupLoading || isSessionLoading) {
     return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
   }
@@ -162,7 +170,14 @@ function AuthGate() {
     );
   }
 
-  return <Router />;
+  return (
+    <div>
+      <div className="fixed top-3 right-3 z-50">
+        <Button variant="outline" size="sm" onClick={handleLogout}>ログアウト</Button>
+      </div>
+      <Router />
+    </div>
+  );
 }
 
 function App() {
