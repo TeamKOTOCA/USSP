@@ -19,6 +19,7 @@ import {
   requireFileAccess,
   createAdminSession,
   destroyAdminSession,
+  getSessionUserId,
   type AuthenticatedRequest,
 } from "./middleware/security";
 
@@ -26,6 +27,140 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  const escapeHtml = (value: string): string =>
+    value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+  const renderAuthorizePage = (params: {
+    clientId: string;
+    redirectUri: string;
+    codeChallenge: string;
+    codeChallengeMethod: string;
+    state?: string;
+    scope: string;
+    user: string;
+    providerUrl: string;
+  }): string => {
+    const scopeItems = params.scope
+      .split(" ")
+      .map((scope) => scope.trim())
+      .filter(Boolean)
+      .map((scope) => `<li>${escapeHtml(scope)}</li>`)
+      .join("");
+
+    const hiddenInput = (name: string, value?: string) =>
+      value ? `<input type=\"hidden\" name=\"${name}\" value=\"${escapeHtml(value)}\">` : "";
+
+    return `<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>USSP OAuth 認証確認</title>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; background: #f5f7fb; color: #111827; }
+      .card { max-width: 560px; margin: 48px auto; background: #ffffff; border-radius: 14px; padding: 24px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08); }
+      h1 { margin: 0 0 12px; font-size: 22px; }
+      p { margin: 0 0 16px; color: #374151; }
+      .kv { margin: 0 0 14px; }
+      .kv dt { font-weight: 600; margin-bottom: 4px; }
+      .kv dd { margin: 0; color: #111827; word-break: break-all; }
+      ul { margin: 8px 0 16px 22px; }
+      .actions { display: flex; gap: 12px; margin-top: 20px; }
+      button { border: 0; border-radius: 8px; cursor: pointer; padding: 10px 14px; font-size: 14px; }
+      .approve { background: #2563eb; color: #fff; }
+      .deny { background: #e5e7eb; color: #111827; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>OAuth 認証の確認</h1>
+      <p>このアプリケーションにアクセス権限を付与しますか？</p>
+
+      <dl>
+        <div class="kv">
+          <dt>クライアントID</dt>
+          <dd>${escapeHtml(params.clientId)}</dd>
+        </div>
+        <div class="kv">
+          <dt>ユーザー</dt>
+          <dd>${escapeHtml(params.user)}</dd>
+        </div>
+        <div class="kv">
+          <dt>提供URL</dt>
+          <dd>${escapeHtml(params.providerUrl)}</dd>
+        </div>
+        <div class="kv">
+          <dt>スコープ</dt>
+          <dd>
+            <ul>${scopeItems || "<li>(なし)</li>"}</ul>
+          </dd>
+        </div>
+      </dl>
+
+      <form method="post" action="/oauth/authorize/approve">
+        ${hiddenInput("client_id", params.clientId)}
+        ${hiddenInput("redirect_uri", params.redirectUri)}
+        ${hiddenInput("code_challenge", params.codeChallenge)}
+        ${hiddenInput("code_challenge_method", params.codeChallengeMethod)}
+        ${hiddenInput("state", params.state)}
+        ${hiddenInput("scope", params.scope)}
+        ${hiddenInput("user", params.user)}
+        ${hiddenInput("provider_url", params.providerUrl)}
+
+        <div class="actions">
+          <button class="approve" type="submit">許可する</button>
+          <button class="deny" type="button" onclick="window.close()">閉じる</button>
+        </div>
+      </form>
+    </div>
+  </body>
+</html>`;
+  };
+
+  const renderOAuthLoginPage = (params: {
+    authorizeUrl: string;
+    error?: string;
+  }): string => `<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>USSP ログイン</title>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; background: #f5f7fb; color: #111827; }
+      .card { max-width: 440px; margin: 56px auto; background: #ffffff; border-radius: 14px; padding: 24px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08); }
+      h1 { margin: 0 0 12px; font-size: 22px; }
+      .error { background: #fef2f2; color: #b91c1c; border-radius: 8px; padding: 10px; margin: 0 0 12px; }
+      .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+      input { border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; padding: 10px; }
+      button { border: 0; border-radius: 8px; cursor: pointer; padding: 10px 14px; font-size: 14px; background: #2563eb; color: #fff; width: 100%; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>USSP にログイン</h1>
+      ${params.error ? `<p class="error">${escapeHtml(params.error)}</p>` : ""}
+      <form method="post" action="/oauth/login">
+        <input type="hidden" name="authorize_url" value="${escapeHtml(params.authorizeUrl)}" />
+        <div class="field">
+          <label for="username">ユーザー名</label>
+          <input id="username" name="username" required />
+        </div>
+        <div class="field">
+          <label for="password">パスワード</label>
+          <input id="password" name="password" type="password" required />
+        </div>
+        <button type="submit">ログインして続行</button>
+      </form>
+    </div>
+  </body>
+</html>`;
 
   app.get("/api/admin/setup-status", async (_req, res) => {
     const hasUsers = await userManagement.hasAnyUsers();
@@ -54,8 +189,8 @@ export async function registerRoutes(
       const sessionId = createAdminSession(user.id);
       res.cookie("admin_session", sessionId, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
+        secure: false,
+        sameSite: "lax",
         maxAge: 24 * 60 * 60 * 1000,
       });
 
@@ -199,8 +334,10 @@ export async function registerRoutes(
       const codeChallenge = req.query.code_challenge as string;
       const codeChallengeMethod = (req.query.code_challenge_method as string) || "plain";
       const state = req.query.state as string;
+      const scope = (req.query.scope as string) || "storage:read storage:write storage:admin";
+      const providerUrl = (req.query.provider_url as string) || req.get("origin") || clientId;
 
-      if (!clientId || !redirectUri) {
+      if (!clientId || !redirectUri || !codeChallenge) {
         return res.status(400).json({ error: "Missing required parameters" });
       }
 
@@ -208,28 +345,113 @@ export async function registerRoutes(
       const client = await storage.ensureOAuthClient(clientId, redirectUri);
       await storage.ensureNamespaceForClient(clientId);
 
+      const sessionUserId = getSessionUserId(req);
+      if (!sessionUserId) {
+        const authorizeUrl = req.originalUrl || req.url;
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        return res.send(renderOAuthLoginPage({ authorizeUrl }));
+      }
+
+      const sessionUser = await userManagement.getUser(sessionUserId);
+      if (!sessionUser || !sessionUser.isActive) {
+        return res.status(401).json({ error: "User session invalid" });
+      }
+
       // Verify redirect URI after provisioning
       if (!client.redirectUris.split(",").map((uri) => uri.trim()).includes(redirectUri)) {
         return res.status(400).json({ error: "Invalid redirect_uri" });
       }
 
-      // Generate authorization code
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(
+        renderAuthorizePage({
+          clientId,
+          redirectUri,
+          codeChallenge,
+          codeChallengeMethod,
+          state,
+          scope,
+          user: sessionUser.username,
+          providerUrl,
+        })
+      );
+    } catch (err) {
+      console.error("OAuth authorize error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/oauth/authorize/approve", async (req, res) => {
+    try {
+      const clientId = req.body.client_id as string;
+      const redirectUri = req.body.redirect_uri as string;
+      const codeChallenge = req.body.code_challenge as string;
+      const codeChallengeMethod = (req.body.code_challenge_method as string) || "plain";
+      const state = req.body.state as string | undefined;
+      const sessionUserId = getSessionUserId(req);
+
+      if (!clientId || !redirectUri || !codeChallenge || !sessionUserId) {
+        return res.status(400).json({ error: "Missing required parameters" });
+      }
+
       const code = await createAuthorizationCode(
         clientId,
         redirectUri,
         codeChallenge,
-        codeChallengeMethod as "S256" | "plain"
+        codeChallengeMethod as "S256" | "plain",
+        sessionUserId,
       );
 
-      // Redirect to client with code
       const redirectUrl = new URL(redirectUri);
       redirectUrl.searchParams.set("code", code);
       if (state) redirectUrl.searchParams.set("state", state);
 
       res.redirect(redirectUrl.toString());
     } catch (err) {
-      console.error("OAuth authorize error:", err);
+      console.error("OAuth authorize approve error:", err);
       res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/oauth/login", async (req, res) => {
+    try {
+      const username = req.body.username as string;
+      const password = req.body.password as string;
+      const authorizeUrl = req.body.authorize_url as string;
+
+      if (!username || !password || !authorizeUrl) {
+        return res.status(400).json({ error: "Missing required parameters" });
+      }
+
+      if (!authorizeUrl.startsWith("/oauth/authorize")) {
+        return res.status(400).json({ error: "Invalid authorize_url" });
+      }
+
+      const isValid = await userManagement.verifyPassword(username, password);
+      if (!isValid) {
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        return res.status(401).send(renderOAuthLoginPage({ authorizeUrl, error: "ユーザー名またはパスワードが不正です。" }));
+      }
+
+      const user = await userManagement.getUserByUsername(username);
+      if (!user || !user.isActive) {
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        return res.status(401).send(renderOAuthLoginPage({ authorizeUrl, error: "利用できないユーザーです。" }));
+      }
+
+      await userManagement.updateLastLogin(user.id);
+      const sessionId = createAdminSession(user.id);
+      res.cookie("admin_session", sessionId, {
+        httpOnly: true,
+        secure: false,
+        sameSite: "lax",
+        maxAge: 24 * 60 * 60 * 1000,
+      });
+
+      res.redirect(authorizeUrl);
+    } catch (err) {
+      console.error("OAuth login error:", err);
+      res.status(500).json({ error: "Login failed" });
     }
   });
 
@@ -440,8 +662,8 @@ export async function registerRoutes(
       const sessionId = createAdminSession(user.id);
       res.cookie("admin_session", sessionId, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
+        secure: false,
+        sameSite: "lax",
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
       });
 
