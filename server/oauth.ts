@@ -44,9 +44,10 @@ export function generateAuthCode(): string {
   return crypto.randomBytes(32).toString("hex");
 }
 
-export function generateAccessToken(clientId: string): string {
+export function generateAccessToken(clientId: string, userId?: number): string {
   const payload = {
     clientId,
+    ...(userId ? { userId } : {}),
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + 3600, // 1 hour
   };
@@ -63,11 +64,15 @@ export function generateAccessToken(clientId: string): string {
   return `${header}.${body}.${signature}`;
 }
 
+
+const authCodeUserMap = new Map<string, number>();
+
 export async function createAuthorizationCode(
   clientId: string,
   redirectUri: string,
   codeChallenge: string,
-  codeChallengeMethod: "S256" | "plain"
+  codeChallengeMethod: "S256" | "plain",
+  userId?: number
 ): Promise<string> {
   const code = generateAuthCode();
   
@@ -78,7 +83,11 @@ export async function createAuthorizationCode(
     codeChallenge,
     codeChallengeMethod,
   });
-  
+
+  if (userId) {
+    authCodeUserMap.set(code, userId);
+  }
+
   return code;
 }
 
@@ -110,7 +119,8 @@ export async function exchangeCodeForToken(
     }
   }
   
-  const accessToken = generateAccessToken(token.clientId);
+  const tokenUserId = authCodeUserMap.get(code);
+  const accessToken = generateAccessToken(token.clientId, tokenUserId);
   const refreshToken = crypto.randomBytes(32).toString("hex");
   
   await db
@@ -123,6 +133,8 @@ export async function exchangeCodeForToken(
     })
     .where(eq(oauthTokens.code, code));
   
+  authCodeUserMap.delete(code);
+
   return { accessToken, refreshToken };
 }
 

@@ -19,25 +19,13 @@
 
 - Node.js 18+
 - npm / yarn / pnpm
-- PostgreSQL / MySQL / SQLite
 
-### データベース選択（開発/本番共通）
+### データベース（既定: SQLite）
 
-USSP は **開発環境・本番環境どちらでも** PostgreSQL / MySQL / SQLite を利用できます。
-
-- SQLite: アプリ内部で管理（`data/ussp.db`。`SQLITE_PATH` で変更可）
-- PostgreSQL: 外部DBサーバーへ接続
-- MySQL: 外部DBサーバーへ接続
+USSP は **開発/本番どちらでも SQLite を既定** で利用します。サーバー起動だけで `data/ussp.db` を自動作成するため、CLI設定は最小限です。
 
 ```env
-# sqlite | postgres | mysql
-DB_CLIENT=sqlite
-
-# postgres / mysql 利用時に必須
-DATABASE_URL=postgresql://user:password@db-host:5432/ussp
-# 例: mysql://user:password@db-host:3306/ussp
-
-# sqlite 利用時（任意）
+# 任意: SQLiteファイルの保存先を変更したい場合のみ指定
 SQLITE_PATH=./data/ussp.db
 ```
 
@@ -57,17 +45,11 @@ npm run setup
 
 ### 環境設定
 
-`.env` ファイルを作成してください：
+`.env` ファイルは必須ではありません。必要最低限なら以下だけで動作します：
 
 ```env
-# 環境
-NODE_ENV=development
-
 # ポート
 PORT=5000
-
-# データベース（本番環境）
-DATABASE_URL=postgresql://user:password@localhost:5432/ussp
 
 # JWT秘密鍵
 JWT_SECRET=your-very-secret-key-min-32-chars
@@ -82,15 +64,7 @@ LOG_LEVEL=info
 BACKUP_CHECK_INTERVAL=5000
 ```
 
-#### 本番環境用 `.env.production`
-
-```env
-NODE_ENV=production
-DATABASE_URL=postgresql://user:password@prod-db.example.com:5432/ussp
-JWT_SECRET=production-secret-key-very-long-and-secure
-PORT=3000
-BACKUP_CHECK_INTERVAL=30000
-```
+本番環境でも同じ起動設定で動作します（SQLite既定・同一サーバー挙動）。
 
 ### 初期化スクリプト実行
 
@@ -114,6 +88,8 @@ npm run dev
 npm run build
 npm run start
 ```
+
+`npm run dev` / `npm run start` で OAuth・セッション・SQLite の挙動は同一です。
 
 ---
 
@@ -207,6 +183,13 @@ Google Drive連携対応予定。
 - 開発者は任意の `client_id` をSDK設定に指定します。
 - サーバー側で事前登録しなくても、初回OAuth時に `client_id` をキーとしてOAuthクライアントとnamespaceを自動作成します。
 - `redirect_uri` はリクエスト時の値へそのままリダイレクトされます。
+
+### OAuth ログインと同一ブラウザセッション
+
+- `/oauth/authorize` は、まず USSP のユーザーセッションを確認します。
+- 未ログインの場合は OAuth 専用ログイン画面が表示され、ログイン後に同じ認可リクエストへ戻ります。
+- 同じブラウザからの後続認可は、ログイン済みユーザーとして処理されます。
+- 認可画面には **クライアントID / ユーザー / 提供URL / スコープ** が表示されます。
 
 ### クライアント登録
 

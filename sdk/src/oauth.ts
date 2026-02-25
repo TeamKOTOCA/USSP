@@ -3,6 +3,8 @@ import { generateCodeVerifier, generateCodeChallenge } from "./crypto-utils";
 export interface OAuthAuthorizeOptions {
   redirectUri: string;
   state?: string;
+  scope?: string;
+  providerUrl?: string;
 }
 
 export interface OAuthToken {
@@ -45,17 +47,25 @@ export class OAuthClient {
       }
     }
 
+    const scope = options.scope || "storage:read storage:write storage:admin";
+    const providerUrl = options.providerUrl || (typeof window !== "undefined" ? window.location.origin : undefined);
+
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: options.redirectUri,
       response_type: "code",
       code_challenge: codeChallenge,
       code_challenge_method: "S256",
-      scope: "storage:read storage:write storage:admin",
+      scope,
     });
 
     if (options.state) {
       params.append("state", options.state);
+    }
+
+
+    if (providerUrl) {
+      params.append("provider_url", providerUrl);
     }
 
     return `${this.ussp.getServerUrl()}/oauth/authorize?${params.toString()}`;

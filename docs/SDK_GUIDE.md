@@ -39,10 +39,14 @@ const ussp = new USSP({
 ```javascript
 const authUrl = await ussp.oauth.generateAuthorizeUrl({
   redirectUri: 'https://yourapp.com/callback',
-  state: 'optional-state'
+  state: 'optional-state',
+  scope: 'storage:read storage:write',
+  providerUrl: 'https://yourapp.com'
 });
 window.location.href = authUrl;
 ```
+
+> 認可画面の「ユーザー」は、USSP 側で同一ブラウザのログインセッションから自動判定されます。
 
 ### 3. コールバック処理
 
@@ -220,6 +224,7 @@ SDKは自動的にPKCE フローを実装します：
 // 1. code_verifier を生成（ランダム64文字）
 // 2. code_challenge を計算（SHA256(code_verifier)）
 // 3. /oauth/authorize にリダイレクト
+//    - 未ログイン時はUSSPログイン画面が先に表示される
 // 4. code_verifier をセッションストレージに保存
 // 5. コールバック時に code_verifier を使用してトークン交換
 ```

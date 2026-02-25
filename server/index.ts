@@ -92,10 +92,9 @@ app.use((req, res, next) => {
     return res.status(status).json({ message });
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (process.env.NODE_ENV === "production") {
+  // Prefer built static assets when present; otherwise fallback to Vite middleware.
+  const publicDir = path.resolve(import.meta.dirname, "public");
+  if (fs.existsSync(publicDir)) {
     serveStatic(app);
   } else {
     const { setupVite } = await import("./vite");

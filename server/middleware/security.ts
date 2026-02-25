@@ -4,6 +4,7 @@ import crypto from "crypto";
 // セッション管理（簡易実装）
 interface TokenPayload {
   clientId: string;
+  userId?: number;
   iat: number;
   exp: number;
 }
@@ -96,6 +97,20 @@ function verifyJWT(token: string): Record<string, any> | null {
   }
 }
 
+
+export function getSessionUserId(req: Request): number | null {
+  const sessionId = getAdminSessionId(req);
+  if (!sessionId) return null;
+
+  const session = adminSessions.get(sessionId);
+  if (!session || session.expiresAt < Date.now()) {
+    adminSessions.delete(sessionId);
+    return null;
+  }
+
+  return session.userId;
+}
+
 export interface AuthenticatedRequest extends Request {
   adminId?: number;
   tokenPayload?: TokenPayload;
@@ -111,19 +126,13 @@ export function requireAdminSession(
   res: Response,
   next: NextFunction
 ) {
-  const sessionId = getAdminSessionId(req);
+  const userId = getSessionUserId(req);
 
-  if (!sessionId) {
+  if (!userId) {
     return res.status(401).json({ error: "Admin session required" });
   }
 
-  const session = adminSessions.get(sessionId);
-  if (!session || session.expiresAt < Date.now()) {
-    adminSessions.delete(sessionId);
-    return res.status(401).json({ error: "Session expired" });
-  }
-
-  req.adminId = session.userId;
+  req.adminId = userId;
   next();
 }
 
