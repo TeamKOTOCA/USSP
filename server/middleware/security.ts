@@ -18,6 +18,26 @@ function isTokenPayload(payload: Record<string, any>): payload is TokenPayload {
 
 const adminSessions = new Map<string, { userId: number; expiresAt: number }>();
 
+function parseCookies(rawCookieHeader?: string): Record<string, string> {
+  if (!rawCookieHeader) return {};
+
+  return rawCookieHeader
+    .split(";")
+    .map((cookie) => cookie.trim())
+    .filter(Boolean)
+    .reduce<Record<string, string>>((acc, cookie) => {
+      const [key, ...rest] = cookie.split("=");
+      if (!key) return acc;
+      acc[key] = decodeURIComponent(rest.join("="));
+      return acc;
+    }, {});
+}
+
+function getAdminSessionId(req: Request): string | undefined {
+  const parsed = parseCookies(req.headers.cookie);
+  return req.cookies?.["admin_session"] ?? parsed["admin_session"];
+}
+
 // 簡易 JWT 実装（jsonwebtoken ライブラリなしで）
 function createJWT(payload: Record<string, any>, expiresIn: number = 3600): string {
   const header = { alg: "HS256", typ: "JWT" };
@@ -91,7 +111,7 @@ export function requireAdminSession(
   res: Response,
   next: NextFunction
 ) {
-  const sessionId = req.cookies?.["admin_session"];
+  const sessionId = getAdminSessionId(req);
 
   if (!sessionId) {
     return res.status(401).json({ error: "Admin session required" });
@@ -209,6 +229,11 @@ export function createAdminSession(userId: number): string {
   });
 
   return sessionId;
+}
+
+export function destroyAdminSession(sessionId?: string): void {
+  if (!sessionId) return;
+  adminSessions.delete(sessionId);
 }
 
 /**

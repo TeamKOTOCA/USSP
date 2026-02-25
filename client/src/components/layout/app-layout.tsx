@@ -5,7 +5,8 @@ import {
   FolderTree, 
   KeyRound, 
   LayoutDashboard, 
-  Settings2 
+  Settings2,
+  UserCog
 } from "lucide-react";
 import {
   Sidebar,
@@ -26,6 +27,7 @@ const navItems = [
   { title: "ストレージアダプター", url: "/adapters", icon: Database },
   { title: "ネームスペース", url: "/namespaces", icon: FolderTree },
   { title: "OAuthクライアント", url: "/clients", icon: KeyRound },
+  { title: "ユーザー", url: "/users", icon: UserCog },
 ];
 
 function AppSidebar() {

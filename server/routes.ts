@@ -18,7 +18,7 @@ import {
   adminOnly,
   requireFileAccess,
   createAdminSession,
-  generateCSRFToken,
+  destroyAdminSession,
   type AuthenticatedRequest,
 } from "./middleware/security";
 
@@ -89,6 +89,19 @@ export async function registerRoutes(
       console.error("Session check error:", err);
       res.status(500).json({ error: "Session check failed" });
     }
+  });
+
+
+  app.post("/api/admin/logout", requireAdminSession as any, async (req: AuthenticatedRequest, res) => {
+    const sessionId = req.headers.cookie
+      ?.split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith("admin_session="))
+      ?.slice("admin_session=".length);
+
+    destroyAdminSession(sessionId);
+    res.clearCookie("admin_session");
+    res.status(204).end();
   });
 
   // Adapters (Web UI Admin Only)
